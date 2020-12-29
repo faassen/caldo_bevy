@@ -732,6 +732,7 @@ mod tests {
         assert_eq!(p.data_pop(), 5);
         assert_eq!(p.data_pop(), 0);
     }
+    // XXX multiple labels test
 
     #[test]
     fn test_call_and_return_in_cell() {
@@ -773,6 +774,33 @@ mod tests {
         p.execute(&c, 50);
         // assert_eq!(p.data_stack, [0; DATA_STACK_SIZE]);
         assert_eq!(p.gene_index, 0);
+        assert_eq!(p.data_pop(), 18);
+    }
+
+    #[test]
+    fn test_jump_and_call_and_return_in_cell() {
+        let mut c = Cell::new();
+        c.set_gene(1, vec![Instr::Number(3), Instr::Add, Instr::Return]);
+        c.set_gene(
+            0,
+            vec![
+                Instr::Number(5),
+                Instr::Number(3),
+                Instr::Label,
+                Instr::Number(1),
+                Instr::Call,
+                Instr::Number(10),
+                Instr::Add,
+                Instr::Number(3),
+                Instr::Jump,
+            ],
+        );
+        let mut p = Processor::new();
+        p.execute(&c, 13);
+        assert_eq!(p.labels, [0, 0, 0, 3]);
+        assert_eq!(p.pc, 4);
+        // we should land just after the label
+        assert_eq!(p.data_pop(), 1);
         assert_eq!(p.data_pop(), 18);
     }
 }
