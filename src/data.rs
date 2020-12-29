@@ -6,7 +6,7 @@ const DATA_STACK_HALF_SIZE: usize = DATA_STACK_SIZE / 2;
 const INSTRUCTION_STACK_SIZE: usize = 32;
 const INSTRUCTION_STACK_HALF_SIZE: usize = INSTRUCTION_STACK_SIZE / 2;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum Instr {
     Number(u8),
     // Nothing
@@ -55,8 +55,8 @@ enum Instr {
     Occupied, // check whether Writing has a cell at all
 }
 
-#[derive(Debug, Copy, Clone)]
-struct Processor {
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct Processor {
     active: bool,
     pc: u8,
     data_stack_index: usize,
@@ -77,6 +77,7 @@ impl Instr {
             Instr::Number(n) => {
                 processor.data_push(n);
             }
+            Instr::Noop => {}
             _ => (),
         }
     }
@@ -144,5 +145,20 @@ mod tests {
         assert_eq!(p.data_stack_index, DATA_STACK_HALF_SIZE + 1);
         assert_eq!(p.data_pop(), 100);
         assert_eq!(p.data_pop(), DATA_STACK_SIZE as u8 - 1)
+    }
+
+    #[test]
+    fn test_instr_number() {
+        let mut p = Processor::new();
+        Instr::Number(15).execute(&mut p);
+        assert_eq!(p.data_pop(), 15);
+    }
+
+    #[test]
+    fn test_instr_noop() {
+        let mut p = Processor::new();
+        Instr::Noop.execute(&mut p);
+        let pristine = Processor::new();
+        assert_eq!(p, pristine);
     }
 }
