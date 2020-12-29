@@ -569,6 +569,7 @@ mod tests {
 
     #[test]
     fn test_instr_return() {
+        // this is a limited test which doesn't take the pc into account
         let mut p = Processor::new();
         Instr::Number(3).execute(&mut p);
         Instr::Call.execute(&mut p);
@@ -582,6 +583,7 @@ mod tests {
 
     #[test]
     fn test_instr_return_underflow() {
+        // doesn't take the pc into account yet
         let mut p = Processor::new();
         Instr::Return.execute(&mut p);
         assert_eq!(p.gene_index, 0);
