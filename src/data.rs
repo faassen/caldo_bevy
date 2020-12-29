@@ -7,8 +7,8 @@ const DATA_STACK_SIZE: usize = 32;
 const DATA_STACK_HALF_SIZE: usize = DATA_STACK_SIZE / 2;
 const INSTRUCTION_STACK_SIZE: usize = 32;
 const INSTRUCTION_STACK_HALF_SIZE: usize = INSTRUCTION_STACK_SIZE / 2;
-const CALL_STACK_SIZE: usize = 32;
-const CALL_STACK_HALF_SIZE: usize = CALL_STACK_SIZE / 2;
+const CALL_STACK_SIZE: u8 = 32;
+const CALL_STACK_HALF_SIZE: u8 = CALL_STACK_SIZE / 2;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum Instr {
@@ -43,10 +43,14 @@ enum Instr {
 
     // Calling genes
     Call,
+    Return,
 
     // Cells where we read and write
     Reading,
     Writing,
+
+    // Conditionally execute the next instruction
+    Cond,
 
     // Looping
     SetLoop,
@@ -62,13 +66,16 @@ enum Instr {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Processor {
     active: bool,
-    gene_index: usize,
+    gene_index: u8,
     pc: usize,
+    cond: bool,
+    reading: u8,
+    writing: u8,
     data_stack_index: usize,
-    call_stack_index: usize,
+    call_stack_index: u8,
     instruction_stack_index: usize,
     data_stack: [i8; DATA_STACK_SIZE],
-    call_stack: [u8; CALL_STACK_SIZE],
+    call_stack: [(u8, usize); CALL_STACK_SIZE as usize],
     instruction_stack: [Instr; INSTRUCTION_STACK_SIZE],
 }
 
@@ -80,6 +87,10 @@ struct Cell {
 
 impl Instr {
     fn execute(&self, processor: &mut Processor) {
+        if !processor.cond {
+            processor.cond = true;
+            return;
+        }
         match *self {
             Instr::Number(n) => {
                 processor.data_push(n);
@@ -177,10 +188,23 @@ impl Instr {
                 processor.data_pop();
             }
             Instr::Call => {
-                let gene_index = processor.data_pop() as usize;
-                processor.call_push(processor.gene_index as u8);
-                processor.pc = 0;
-                processor.gene_index = gene_index % GENE_AMOUNT;
+                let gene_index = processor.data_pop();
+                processor.call_push((gene_index as u8) % (GENE_AMOUNT as u8));
+            }
+            Instr::Return => {
+                processor.call_pop();
+            }
+            Instr::Reading => {
+                let a = processor.data_pop();
+                processor.reading = (a % 5) as u8; // self plus cardinal directions
+            }
+            Instr::Writing => {
+                let a = processor.data_pop();
+                processor.writing = (a % 5) as u8; // self plus cardinal directions
+            }
+            Instr::Cond => {
+                let a = processor.data_pop();
+                processor.cond = a != 0;
             }
             _ => (),
         }
@@ -192,11 +216,14 @@ impl Processor {
             active: false,
             gene_index: 0,
             pc: 0,
+            cond: true,
+            reading: 0,
+            writing: 0,
             data_stack_index: 0,
             call_stack_index: 0,
             instruction_stack_index: 0,
             data_stack: [0; DATA_STACK_SIZE],
-            call_stack: [0; CALL_STACK_SIZE],
+            call_stack: [(0, 0); CALL_STACK_SIZE as usize],
             instruction_stack: [Instr::Noop; INSTRUCTION_STACK_SIZE],
         }
     }
@@ -222,25 +249,34 @@ impl Processor {
         }
     }
 
-    fn call_push(&mut self, value: u8) {
+    fn call_push(&mut self, gene_index: u8) {
         // compress stack if needed
         if self.call_stack_index >= CALL_STACK_SIZE {
             self.call_stack_index = CALL_STACK_HALF_SIZE;
             for i in 0..CALL_STACK_HALF_SIZE {
-                self.call_stack[i] = self.call_stack[i + CALL_STACK_HALF_SIZE];
+                self.call_stack[i as usize] = self.call_stack[(i + CALL_STACK_HALF_SIZE) as usize];
             }
         }
-        self.call_stack[self.call_stack_index] = value;
+        self.call_stack[self.call_stack_index as usize] = (self.gene_index, self.pc);
         self.call_stack_index += 1;
+        self.pc = 0;
+        self.gene_index = gene_index;
     }
 
-    fn call_pop(&mut self) -> u8 {
+    fn call_pop(&mut self) {
+        let gene_index: u8;
+        let pc;
         if self.call_stack_index == 0 {
-            0
+            gene_index = 0;
+            pc = 0;
         } else {
             self.call_stack_index -= 1;
-            self.call_stack[self.call_stack_index]
+            let top = self.call_stack[self.call_stack_index as usize];
+            gene_index = top.0;
+            pc = top.1;
         }
+        self.gene_index = gene_index;
+        self.pc = pc;
     }
 }
 
@@ -523,12 +559,33 @@ mod tests {
         assert_eq!(p.data_pop(), 0);
         assert_eq!(p.gene_index, 3);
         assert_eq!(p.call_stack_index, 1);
-        assert_eq!(p.call_stack[0], 0);
+        assert_eq!(p.call_stack[0], (0, 0));
         Instr::Number(2).execute(&mut p);
         Instr::Call.execute(&mut p);
         assert_eq!(p.gene_index, 2);
         assert_eq!(p.call_stack_index, 2);
-        assert_eq!(p.call_stack[1], 3);
+        assert_eq!(p.call_stack[1], (3, 0));
+    }
+
+    #[test]
+    fn test_instr_return() {
+        let mut p = Processor::new();
+        Instr::Number(3).execute(&mut p);
+        Instr::Call.execute(&mut p);
+        assert_eq!(p.gene_index, 3);
+        assert_eq!(p.call_stack_index, 1);
+        assert_eq!(p.call_stack[0], (0, 0));
+        Instr::Return.execute(&mut p);
+        assert_eq!(p.gene_index, 0);
+        assert_eq!(p.call_stack_index, 0);
+    }
+
+    #[test]
+    fn test_instr_return_underflow() {
+        let mut p = Processor::new();
+        Instr::Return.execute(&mut p);
+        assert_eq!(p.gene_index, 0);
+        assert_eq!(p.call_stack_index, 0);
     }
 
     #[test]
@@ -550,7 +607,10 @@ mod tests {
         }
         assert_eq!(p.call_stack_index, CALL_STACK_SIZE);
         // last invoker
-        assert_eq!(p.call_stack[CALL_STACK_SIZE - 1], GENE_AMOUNT as u8 - 1);
+        assert_eq!(
+            p.call_stack[CALL_STACK_SIZE as usize - 1],
+            (GENE_AMOUNT as u8 - 1, 0)
+        );
 
         // now smash the stack
         Instr::Number(2).execute(&mut p);
@@ -558,7 +618,29 @@ mod tests {
 
         assert_eq!(p.call_stack_index, CALL_STACK_HALF_SIZE + 1);
         // 0 as it is just beyond GENE_AMOUNT
-        assert_eq!(p.call_stack[p.call_stack_index - 1], 0);
+        assert_eq!(p.call_stack[p.call_stack_index as usize - 1], (0, 0));
         assert_eq!(p.gene_index, 2);
+    }
+
+    #[test]
+    fn test_instr_cond_true() {
+        let mut p = Processor::new();
+        Instr::Number(3).execute(&mut p);
+        Instr::Number(4).execute(&mut p);
+        Instr::Number(1).execute(&mut p);
+        Instr::Cond.execute(&mut p);
+        Instr::Add.execute(&mut p);
+        assert_eq!(p.data_pop(), 7);
+    }
+
+    #[test]
+    fn test_instr_cond_false() {
+        let mut p = Processor::new();
+        Instr::Number(3).execute(&mut p);
+        Instr::Number(4).execute(&mut p);
+        Instr::Number(0).execute(&mut p);
+        Instr::Cond.execute(&mut p);
+        Instr::Add.execute(&mut p);
+        assert_eq!(p.data_pop(), 4);
     }
 }
