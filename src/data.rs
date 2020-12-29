@@ -3,6 +3,7 @@ use std::num::Wrapping;
 const GENE_SIZE: usize = 32;
 const GENE_AMOUNT: usize = 16;
 const PROCESSOR_AMOUNT: usize = 4;
+const LABEL_AMOUNT: usize = 4;
 const DATA_STACK_SIZE: usize = 32;
 const DATA_STACK_HALF_SIZE: usize = DATA_STACK_SIZE / 2;
 const INSTRUCTION_STACK_SIZE: usize = 32;
@@ -49,17 +50,23 @@ enum Instr {
     Cond,
     Label,
     Jump,
-
     // Read & write instructions
-    Read,
-    Write,
+    // Read,
+    // Write,
 
     // Input and output gates to interact with world
     // these drive metabolism, where we're reading, where we're writing,
     // and sensors, and whether we're spawning a processor
     // Certain interactions induce others suppress
-    In,
-    Out,
+    // In,
+    // Out,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct CallStackEntry {
+    gene_index: u8,
+    pc: usize,
+    labels: [u8; LABEL_AMOUNT],
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -67,18 +74,29 @@ pub struct Processor {
     active: bool,
     gene_index: u8,
     pc: usize,
+    labels: [u8; LABEL_AMOUNT],
     cond: bool,
     data_stack_index: usize,
     call_stack_index: u8,
     instruction_stack_index: usize,
     data_stack: [u8; DATA_STACK_SIZE],
-    call_stack: [(u8, usize); CALL_STACK_SIZE as usize],
+    call_stack: [CallStackEntry; CALL_STACK_SIZE as usize],
     instruction_stack: [Instr; INSTRUCTION_STACK_SIZE],
 }
 
 #[derive(Debug, Copy, Clone)]
 struct Cell {
     genes: [[Instr; GENE_SIZE]; GENE_AMOUNT],
+}
+
+impl CallStackEntry {
+    fn new() -> CallStackEntry {
+        CallStackEntry {
+            gene_index: 0,
+            pc: 0,
+            labels: [0; LABEL_AMOUNT],
+        }
+    }
 }
 
 impl Instr {
@@ -194,28 +212,42 @@ impl Instr {
                 let a = processor.data_pop();
                 processor.cond = a != 0;
             }
-            // Instr::Label => {
-            //     let a = processor.data_pop();
-            //     processor.labels[(a as u8) % LABEL_AMOUNT] = processor.pc + 1;
-            // }
-            _ => (),
+            Instr::Label => {
+                let a = processor.data_pop();
+                processor.labels[(a as usize) % LABEL_AMOUNT] = processor.pc as u8;
+            }
+            Instr::Jump => {
+                let a = processor.data_pop();
+                processor.pc = processor.labels[(a as usize) % LABEL_AMOUNT] as usize;
+            }
         }
     }
 }
 impl Processor {
     pub fn new() -> Processor {
         Processor {
-            active: false,
+            active: true,
             gene_index: 0,
             pc: 0,
+            labels: [0; LABEL_AMOUNT],
             cond: true,
             data_stack_index: 0,
             call_stack_index: 0,
             instruction_stack_index: 0,
             data_stack: [0; DATA_STACK_SIZE],
-            call_stack: [(0, 0); CALL_STACK_SIZE as usize],
+            call_stack: [CallStackEntry::new(); CALL_STACK_SIZE as usize],
             instruction_stack: [Instr::Noop; INSTRUCTION_STACK_SIZE],
         }
+    }
+
+    fn reset(&mut self) {
+        self.gene_index = 0;
+        self.pc = 0;
+        self.labels = [0; LABEL_AMOUNT];
+        self.cond = true;
+        self.data_stack_index = 0;
+        self.call_stack_index = 0;
+        self.instruction_stack_index = 0;
     }
 
     fn execute(&mut self, cell: &Cell, amount: usize) {
@@ -266,26 +298,28 @@ impl Processor {
                 self.call_stack[i as usize] = self.call_stack[(i + CALL_STACK_HALF_SIZE) as usize];
             }
         }
-        self.call_stack[self.call_stack_index as usize] = (self.gene_index, self.pc);
+        self.call_stack[self.call_stack_index as usize] = CallStackEntry {
+            gene_index: self.gene_index,
+            pc: self.pc,
+            labels: self.labels,
+        };
         self.call_stack_index += 1;
         self.pc = 0;
         self.gene_index = gene_index;
+        self.labels = [0; LABEL_AMOUNT];
     }
 
     fn call_pop(&mut self) {
-        let gene_index: u8;
-        let pc;
         if self.call_stack_index == 0 {
-            gene_index = 0;
-            pc = 0;
-        } else {
-            self.call_stack_index -= 1;
-            let top = self.call_stack[self.call_stack_index as usize];
-            gene_index = top.0;
-            pc = top.1;
+            // restart, all anew
+            self.reset();
+            return;
         }
-        self.gene_index = gene_index;
-        self.pc = pc;
+        self.call_stack_index -= 1;
+        let entry = self.call_stack[self.call_stack_index as usize];
+        self.gene_index = entry.gene_index;
+        self.pc = entry.pc;
+        self.labels = entry.labels;
     }
 }
 
@@ -589,12 +623,12 @@ mod tests {
         assert_eq!(p.data_pop(), 0);
         assert_eq!(p.gene_index, 3);
         assert_eq!(p.call_stack_index, 1);
-        assert_eq!(p.call_stack[0], (0, 0));
+        assert_eq!(p.call_stack[0].gene_index, 0);
         Instr::Number(2).execute(&mut p);
         Instr::Call.execute(&mut p);
         assert_eq!(p.gene_index, 2);
         assert_eq!(p.call_stack_index, 2);
-        assert_eq!(p.call_stack[1], (3, 0));
+        assert_eq!(p.call_stack[1].gene_index, 3);
     }
 
     #[test]
@@ -605,7 +639,7 @@ mod tests {
         Instr::Call.execute(&mut p);
         assert_eq!(p.gene_index, 3);
         assert_eq!(p.call_stack_index, 1);
-        assert_eq!(p.call_stack[0], (0, 0));
+        assert_eq!(p.call_stack[0].gene_index, 0);
         Instr::Return.execute(&mut p);
         assert_eq!(p.gene_index, 0);
         assert_eq!(p.call_stack_index, 0);
@@ -640,8 +674,8 @@ mod tests {
         assert_eq!(p.call_stack_index, CALL_STACK_SIZE);
         // last invoker
         assert_eq!(
-            p.call_stack[CALL_STACK_SIZE as usize - 1],
-            (GENE_AMOUNT as u8 - 1, 0)
+            p.call_stack[CALL_STACK_SIZE as usize - 1].gene_index,
+            GENE_AMOUNT as u8 - 1
         );
 
         // now smash the stack
@@ -650,7 +684,7 @@ mod tests {
 
         assert_eq!(p.call_stack_index, CALL_STACK_HALF_SIZE + 1);
         // 0 as it is just beyond GENE_AMOUNT
-        assert_eq!(p.call_stack[p.call_stack_index as usize - 1], (0, 0));
+        assert_eq!(p.call_stack[p.call_stack_index as usize - 1].gene_index, 0);
         assert_eq!(p.gene_index, 2);
     }
 
@@ -676,13 +710,28 @@ mod tests {
         assert_eq!(p.data_pop(), 4);
     }
 
-    // #[test]
-    // fn test_jump_labels() {
-    //     let mut p = Processor::new();
-    //     Instr::Number(3).execute(&mut p);
-    //     Instr::Label.execute(&mut p);
-    //     assert_eq!(p.labels[3], 0);
-    // }
+    #[test]
+    fn test_label_and_jump() {
+        let mut c = Cell::new();
+        c.set_gene(
+            0,
+            vec![
+                Instr::Number(5),
+                Instr::Number(3),
+                Instr::Label, // set label 3
+                Instr::Number(7),
+                Instr::Number(3),
+                Instr::Jump, // jump to label 3
+            ],
+        );
+        let mut p = Processor::new();
+        p.execute(&c, 7);
+        // the 7 should be there two times because of the jump
+        assert_eq!(p.data_pop(), 7);
+        assert_eq!(p.data_pop(), 7);
+        assert_eq!(p.data_pop(), 5);
+        assert_eq!(p.data_pop(), 0);
+    }
 
     #[test]
     fn test_call_and_return_in_cell() {
