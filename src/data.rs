@@ -186,7 +186,7 @@ impl Instr {
             }
             Instr::Call => {
                 let gene_index = processor.data_pop();
-                processor.call_push((gene_index as u8) % (GENE_AMOUNT as u8));
+                processor.call_push(gene_index % (GENE_AMOUNT as u8));
             }
             Instr::Return => {
                 processor.call_pop();
