@@ -1,3 +1,5 @@
+use std::num::Wrapping;
+
 const GENE_SIZE: usize = 32;
 const GENE_AMOUNT: usize = 16;
 const PROCESSOR_AMOUNT: usize = 4;
@@ -8,7 +10,7 @@ const INSTRUCTION_STACK_HALF_SIZE: usize = INSTRUCTION_STACK_SIZE / 2;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum Instr {
-    Number(u8),
+    Number(i8),
     // Nothing
     Noop,
 
@@ -58,10 +60,11 @@ enum Instr {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Processor {
     active: bool,
-    pc: u8,
+    gene_index: usize,
+    pc: usize,
     data_stack_index: usize,
     instruction_stack_index: usize,
-    data_stack: [u8; DATA_STACK_SIZE],
+    data_stack: [i8; DATA_STACK_SIZE],
     instruction_stack: [Instr; INSTRUCTION_STACK_SIZE],
 }
 
@@ -78,6 +81,31 @@ impl Instr {
                 processor.data_push(n);
             }
             Instr::Noop => {}
+            Instr::Add => {
+                let a = processor.data_pop();
+                let b = processor.data_pop();
+                processor.data_push(a.wrapping_add(b));
+            }
+            Instr::Sub => {
+                let a = processor.data_pop();
+                let b = processor.data_pop();
+                processor.data_push(b.wrapping_sub(a));
+            }
+            Instr::Mul => {
+                let a = processor.data_pop();
+                let b = processor.data_pop();
+                processor.data_push(a.wrapping_mul(b));
+            }
+            Instr::Div => {
+                let a = processor.data_pop();
+                let b = processor.data_pop();
+                if a == 0 {
+                    processor.data_push(0);
+                } else {
+                    processor.data_push(b.wrapping_div(a));
+                }
+            }
+
             _ => (),
         }
     }
@@ -86,6 +114,7 @@ impl Processor {
     pub fn new() -> Processor {
         Processor {
             active: false,
+            gene_index: 0,
             pc: 0,
             data_stack_index: 0,
             instruction_stack_index: 0,
@@ -94,7 +123,7 @@ impl Processor {
         }
     }
 
-    fn data_push(&mut self, value: u8) {
+    fn data_push(&mut self, value: i8) {
         // compress stack if needed
         if self.data_stack_index >= DATA_STACK_SIZE {
             self.data_stack_index = DATA_STACK_HALF_SIZE;
@@ -106,7 +135,7 @@ impl Processor {
         self.data_stack_index += 1;
     }
 
-    fn data_pop(&mut self) -> u8 {
+    fn data_pop(&mut self) -> i8 {
         if self.data_stack_index == 0 {
             0
         } else {
@@ -137,14 +166,14 @@ mod tests {
     fn test_data_stack_overflow() {
         let mut p = Processor::new();
         for i in 0..DATA_STACK_SIZE {
-            p.data_push(i as u8);
+            p.data_push(i as i8);
         }
         assert_eq!(p.data_stack_index, DATA_STACK_SIZE);
         // now smash the stack
         p.data_push(100);
         assert_eq!(p.data_stack_index, DATA_STACK_HALF_SIZE + 1);
         assert_eq!(p.data_pop(), 100);
-        assert_eq!(p.data_pop(), DATA_STACK_SIZE as u8 - 1)
+        assert_eq!(p.data_pop(), DATA_STACK_SIZE as i8 - 1)
     }
 
     #[test]
@@ -160,5 +189,68 @@ mod tests {
         Instr::Noop.execute(&mut p);
         let pristine = Processor::new();
         assert_eq!(p, pristine);
+    }
+
+    #[test]
+    fn test_instr_add() {
+        let mut p = Processor::new();
+        Instr::Number(2).execute(&mut p);
+        Instr::Number(3).execute(&mut p);
+        Instr::Add.execute(&mut p);
+        assert_eq!(p.data_pop(), 5);
+    }
+
+    #[test]
+    fn test_instr_add_overflow() {
+        let mut p = Processor::new();
+        Instr::Number(127).execute(&mut p);
+        Instr::Number(1).execute(&mut p);
+        Instr::Add.execute(&mut p);
+        assert_eq!(p.data_pop(), -128);
+    }
+
+    #[test]
+    fn test_instr_sub() {
+        let mut p = Processor::new();
+        Instr::Number(5).execute(&mut p);
+        Instr::Number(3).execute(&mut p);
+        Instr::Sub.execute(&mut p);
+        assert_eq!(p.data_pop(), 2);
+    }
+
+    #[test]
+    fn test_instr_sub_underflow() {
+        let mut p = Processor::new();
+        Instr::Number(-128).execute(&mut p);
+        Instr::Number(2).execute(&mut p);
+        Instr::Sub.execute(&mut p);
+        assert_eq!(p.data_pop(), 126);
+    }
+
+    #[test]
+    fn test_instr_mul() {
+        let mut p = Processor::new();
+        Instr::Number(2).execute(&mut p);
+        Instr::Number(3).execute(&mut p);
+        Instr::Mul.execute(&mut p);
+        assert_eq!(p.data_pop(), 6);
+    }
+
+    #[test]
+    fn test_instr_div() {
+        let mut p = Processor::new();
+        Instr::Number(6).execute(&mut p);
+        Instr::Number(2).execute(&mut p);
+        Instr::Div.execute(&mut p);
+        assert_eq!(p.data_pop(), 3);
+    }
+
+    #[test]
+    fn test_instr_div_zero() {
+        let mut p = Processor::new();
+        Instr::Number(6).execute(&mut p);
+        Instr::Number(0).execute(&mut p);
+        Instr::Div.execute(&mut p);
+        assert_eq!(p.data_pop(), 0);
     }
 }
