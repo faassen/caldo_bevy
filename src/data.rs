@@ -133,7 +133,7 @@ mod tests {
     }
 
     #[test]
-    fn test_data_stack_smash() {
+    fn test_data_stack_overflow() {
         let mut p = Processor::new();
         for i in 0..DATA_STACK_SIZE {
             p.data_push(i as u8);
