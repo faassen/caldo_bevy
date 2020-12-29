@@ -45,22 +45,23 @@ enum Instr {
     Call,
     Return,
 
-    // Cells where we read and write
-    Reading,
-    Writing,
-
     // Conditionally execute the next instruction
     Cond,
 
     // Looping
-    SetLoop,
-    Loop,
+    Label,
+    Goto,
 
-    // Spawn processor
-    Spawn, // nr of processor to spawn
+    // Read & write instructions
+    Read,
+    Write,
 
-    // Environment
-    Occupied, // check whether Writing has a cell at all
+    // Input and output gates to interact with world
+    // these drive metabolism, where we're reading, where we're writing,
+    // and sensors, and whether we're spawning a processor
+    // Certain interactions induce others suppress
+    In,
+    Out,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -69,8 +70,6 @@ pub struct Processor {
     gene_index: u8,
     pc: usize,
     cond: bool,
-    reading: u8,
-    writing: u8,
     data_stack_index: usize,
     call_stack_index: u8,
     instruction_stack_index: usize,
@@ -194,18 +193,11 @@ impl Instr {
             Instr::Return => {
                 processor.call_pop();
             }
-            Instr::Reading => {
-                let a = processor.data_pop();
-                processor.reading = (a % 5) as u8; // self plus cardinal directions
-            }
-            Instr::Writing => {
-                let a = processor.data_pop();
-                processor.writing = (a % 5) as u8; // self plus cardinal directions
-            }
             Instr::Cond => {
                 let a = processor.data_pop();
                 processor.cond = a != 0;
             }
+
             _ => (),
         }
     }
@@ -217,8 +209,6 @@ impl Processor {
             gene_index: 0,
             pc: 0,
             cond: true,
-            reading: 0,
-            writing: 0,
             data_stack_index: 0,
             call_stack_index: 0,
             instruction_stack_index: 0,
