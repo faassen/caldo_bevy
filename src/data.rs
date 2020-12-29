@@ -79,7 +79,6 @@ pub struct Processor {
 #[derive(Debug, Copy, Clone)]
 struct Cell {
     genes: [[Instr; GENE_SIZE]; GENE_AMOUNT],
-    processors: [Processor; PROCESSOR_AMOUNT],
 }
 
 impl Instr {
@@ -219,6 +218,25 @@ impl Processor {
         }
     }
 
+    fn execute(&mut self, cell: &Cell, amount: usize) {
+        for _i in 0..amount {
+            let instruction;
+            // update pc to next pc; may be overwritten by instruction
+            if self.pc < GENE_SIZE {
+                // fetch instruction first
+                instruction = cell.genes[self.gene_index as usize][self.pc];
+                self.pc += 1;
+            } else {
+                // otherwise we try a return
+                self.call_pop();
+                instruction = cell.genes[self.gene_index as usize][self.pc];
+                self.pc += 1;
+            }
+            // now execute instruction
+            instruction.execute(self);
+        }
+    }
+
     fn data_push(&mut self, value: u8) {
         // compress stack if needed
         if self.data_stack_index >= DATA_STACK_SIZE {
@@ -268,6 +286,27 @@ impl Processor {
         }
         self.gene_index = gene_index;
         self.pc = pc;
+    }
+}
+
+impl Cell {
+    pub fn new() -> Cell {
+        Cell {
+            genes: [[Instr::Noop; GENE_SIZE]; GENE_AMOUNT],
+        }
+    }
+
+    fn set_gene(&mut self, gene_index: u8, instructions: Vec<Instr>) {
+        if instructions.len() > GENE_SIZE {
+            panic!("More instructions than fit!");
+        }
+        let gene = &mut self.genes[gene_index as usize];
+        for i in 0..instructions.len() {
+            gene[i] = instructions[i];
+        }
+        for i in instructions.len()..GENE_SIZE {
+            gene[i] = Instr::Noop;
+        }
     }
 }
 
@@ -644,4 +683,47 @@ mod tests {
     //     Instr::Label.execute(&mut p);
     //     assert_eq!(p.labels[3], 0);
     // }
+
+    #[test]
+    fn test_call_and_return_in_cell() {
+        let mut c = Cell::new();
+        c.set_gene(1, vec![Instr::Number(3), Instr::Add, Instr::Return]);
+        c.set_gene(
+            0,
+            vec![
+                Instr::Number(5),
+                Instr::Number(1),
+                Instr::Call,
+                Instr::Number(10),
+                Instr::Add,
+            ],
+        );
+        let mut p = Processor::new();
+        p.execute(&c, 8);
+        assert_eq!(p.gene_index, 0);
+        // assert_eq!(p.data_stack, [0; DATA_STACK_SIZE]);
+        assert_eq!(p.data_pop(), 18);
+    }
+
+    #[test]
+    fn test_call_and_return_in_cell_implicit_return() {
+        let mut c = Cell::new();
+        c.set_gene(1, vec![Instr::Number(3), Instr::Add]);
+        c.set_gene(
+            0,
+            vec![
+                Instr::Number(5),
+                Instr::Number(1),
+                Instr::Call,
+                Instr::Number(10),
+                Instr::Add,
+            ],
+        );
+        let mut p = Processor::new();
+        // should get us well into noop land but not beyond the end of gene 0
+        p.execute(&c, 50);
+        // assert_eq!(p.data_stack, [0; DATA_STACK_SIZE]);
+        assert_eq!(p.gene_index, 0);
+        assert_eq!(p.data_pop(), 18);
+    }
 }
