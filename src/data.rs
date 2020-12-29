@@ -12,7 +12,7 @@ const CALL_STACK_HALF_SIZE: u8 = CALL_STACK_SIZE / 2;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum Instr {
-    Number(i8),
+    Number(u8),
     // Nothing
     Noop,
 
@@ -45,12 +45,10 @@ enum Instr {
     Call,
     Return,
 
-    // Conditionally execute the next instruction
+    // Flow control
     Cond,
-
-    // Looping
     Label,
-    Goto,
+    Jump,
 
     // Read & write instructions
     Read,
@@ -73,7 +71,7 @@ pub struct Processor {
     data_stack_index: usize,
     call_stack_index: u8,
     instruction_stack_index: usize,
-    data_stack: [i8; DATA_STACK_SIZE],
+    data_stack: [u8; DATA_STACK_SIZE],
     call_stack: [(u8, usize); CALL_STACK_SIZE as usize],
     instruction_stack: [Instr; INSTRUCTION_STACK_SIZE],
 }
@@ -122,36 +120,36 @@ impl Instr {
             Instr::Eq => {
                 let a = processor.data_pop();
                 let b = processor.data_pop();
-                processor.data_push((a == b) as i8);
+                processor.data_push((a == b) as u8);
             }
             Instr::Ne => {
                 let a = processor.data_pop();
                 let b = processor.data_pop();
-                processor.data_push((a != b) as i8);
+                processor.data_push((a != b) as u8);
             }
             Instr::Gt => {
                 let a = processor.data_pop();
                 let b = processor.data_pop();
-                processor.data_push((b > a) as i8);
+                processor.data_push((b > a) as u8);
             }
             Instr::Lt => {
                 let a = processor.data_pop();
                 let b = processor.data_pop();
-                processor.data_push((b < a) as i8);
+                processor.data_push((b < a) as u8);
             }
             Instr::And => {
                 let a = processor.data_pop();
                 let b = processor.data_pop();
-                processor.data_push((a != 0 && b != 0) as i8);
+                processor.data_push((a != 0 && b != 0) as u8);
             }
             Instr::Or => {
                 let a = processor.data_pop();
                 let b = processor.data_pop();
-                processor.data_push((a != 0 || b != 0) as i8);
+                processor.data_push((a != 0 || b != 0) as u8);
             }
             Instr::Not => {
                 let a = processor.data_pop();
-                processor.data_push((a == 0) as i8);
+                processor.data_push((a == 0) as u8);
             }
             Instr::Dup => {
                 let a = processor.data_pop();
@@ -197,7 +195,10 @@ impl Instr {
                 let a = processor.data_pop();
                 processor.cond = a != 0;
             }
-
+            // Instr::Label => {
+            //     let a = processor.data_pop();
+            //     processor.labels[(a as u8) % LABEL_AMOUNT] = processor.pc + 1;
+            // }
             _ => (),
         }
     }
@@ -218,7 +219,7 @@ impl Processor {
         }
     }
 
-    fn data_push(&mut self, value: i8) {
+    fn data_push(&mut self, value: u8) {
         // compress stack if needed
         if self.data_stack_index >= DATA_STACK_SIZE {
             self.data_stack_index = DATA_STACK_HALF_SIZE;
@@ -230,7 +231,7 @@ impl Processor {
         self.data_stack_index += 1;
     }
 
-    fn data_pop(&mut self) -> i8 {
+    fn data_pop(&mut self) -> u8 {
         if self.data_stack_index == 0 {
             0
         } else {
@@ -291,14 +292,14 @@ mod tests {
     fn test_data_stack_overflow() {
         let mut p = Processor::new();
         for i in 0..DATA_STACK_SIZE {
-            p.data_push(i as i8);
+            p.data_push(i as u8);
         }
         assert_eq!(p.data_stack_index, DATA_STACK_SIZE);
         // now smash the stack
         p.data_push(100);
         assert_eq!(p.data_stack_index, DATA_STACK_HALF_SIZE + 1);
         assert_eq!(p.data_pop(), 100);
-        assert_eq!(p.data_pop(), DATA_STACK_SIZE as i8 - 1)
+        assert_eq!(p.data_pop(), DATA_STACK_SIZE as u8 - 1)
     }
 
     #[test]
@@ -328,10 +329,10 @@ mod tests {
     #[test]
     fn test_instr_add_overflow() {
         let mut p = Processor::new();
-        Instr::Number(127).execute(&mut p);
+        Instr::Number(255).execute(&mut p);
         Instr::Number(1).execute(&mut p);
         Instr::Add.execute(&mut p);
-        assert_eq!(p.data_pop(), -128);
+        assert_eq!(p.data_pop(), 0);
     }
 
     #[test]
@@ -346,10 +347,10 @@ mod tests {
     #[test]
     fn test_instr_sub_underflow() {
         let mut p = Processor::new();
-        Instr::Number(-128).execute(&mut p);
+        Instr::Number(0).execute(&mut p);
         Instr::Number(2).execute(&mut p);
         Instr::Sub.execute(&mut p);
-        assert_eq!(p.data_pop(), 126);
+        assert_eq!(p.data_pop(), 254);
     }
 
     #[test]
@@ -584,17 +585,17 @@ mod tests {
     fn test_instr_call_out_of_range() {
         let mut p = Processor::new();
         // silly non-existing processor number still works
-        Instr::Number(-17).execute(&mut p);
+        Instr::Number(17).execute(&mut p);
         Instr::Call.execute(&mut p);
         assert_eq!(p.data_pop(), 0);
-        assert_eq!(p.gene_index, 15);
+        assert_eq!(p.gene_index, 1);
     }
 
     #[test]
     fn test_instr_call_stack_overflow() {
         let mut p = Processor::new();
         for i in 1..=CALL_STACK_SIZE {
-            Instr::Number(i as i8).execute(&mut p);
+            Instr::Number(i).execute(&mut p);
             Instr::Call.execute(&mut p);
         }
         assert_eq!(p.call_stack_index, CALL_STACK_SIZE);
@@ -635,4 +636,12 @@ mod tests {
         Instr::Add.execute(&mut p);
         assert_eq!(p.data_pop(), 4);
     }
+
+    // #[test]
+    // fn test_jump_labels() {
+    //     let mut p = Processor::new();
+    //     Instr::Number(3).execute(&mut p);
+    //     Instr::Label.execute(&mut p);
+    //     assert_eq!(p.labels[3], 0);
+    // }
 }
