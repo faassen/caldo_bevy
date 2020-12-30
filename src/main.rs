@@ -81,31 +81,15 @@ impl PositionMap {
 //    E D
 
 fn setup_entities(commands: &mut Commands) {
-    commands
-        .spawn((Position { x: 10, y: 10 }, Name { name: "A".into() }))
-        .current_entity()
-        .unwrap();
-    commands
-        .spawn((Position { x: 10, y: 11 }, Name { name: "B".into() }))
-        .current_entity()
-        .unwrap();
-    commands
-        .spawn((Position { x: 11, y: 11 }, Name { name: "C".into() }))
-        .current_entity()
-        .unwrap();
-    commands
-        .spawn((Position { x: 10, y: 12 }, Name { name: "D".into() }))
-        .current_entity()
-        .unwrap();
-    commands
-        .spawn((Position { x: 9, y: 12 }, Name { name: "E".into() }))
-        .current_entity()
-        .unwrap();
+    commands.spawn((Position { x: 10, y: 10 }, Name { name: "A".into() }));
+    commands.spawn((Position { x: 10, y: 11 }, Name { name: "B".into() }));
+    commands.spawn((Position { x: 11, y: 11 }, Name { name: "C".into() }));
+    commands.spawn((Position { x: 10, y: 12 }, Name { name: "D".into() }));
+    commands.spawn((Position { x: 9, y: 12 }, Name { name: "E".into() }));
 }
 
 fn update_position_map(mut position_map: ResMut<PositionMap>, query: Query<(Entity, &Position)>) {
     for (entity, position) in query.iter() {
-        println!("Anyone?");
         position_map.add(entity, (position.x, position.y));
     }
 }
@@ -124,16 +108,13 @@ fn print_neighbor_system(position_map: Res<PositionMap>, query: Query<(Entity, &
     }
 }
 
-fn hello_world() {
-    println!("hello world!");
-}
-
 #[bevy_main]
 fn main() {
     App::build()
         .add_resource(PositionMap::new())
         .add_startup_system(setup_entities.system())
-        .add_system(update_position_map.system())
+        .add_startup_stage_after(stage::STARTUP, "finalize_startup", SystemStage::parallel())
+        .add_startup_system_to_stage("finalize_startup", update_position_map.system())
         .add_system(print_neighbor_system.system())
         .run();
 }
