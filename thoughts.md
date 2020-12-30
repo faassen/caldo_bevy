@@ -116,3 +116,63 @@ The cell read scope and write scope could be variable based
 How is an entity component system of any use in this?
 The entire memory area is fixed, except possibly the existence of
 cells themselves which can be allocated on demand
+
+- How would a cell access its neighbors? It should just have pointers to
+  its current neighbors? Or at least entity ids?
+
+  perhaps it can say: "read this index and amount onto instruction stack"
+  and "write this amount from instruction stack to this index" as async
+  commands.
+
+- How is neighborhood maintained efficiently? Go through all
+  cells and construct neighborhood maps for each of them in a hashtable?
+
+  When we write async writing isn't too hard; this can be batched in order.
+
+  When we read there's an async nature to it as well though. Could writing
+  be done as part of input/output gates instead? Maybe the system can have
+  multiple stacks and we can easily switch stack?
+
+- What happens if we write to an empty neighbor? It's instantiated
+  with Noop instructions (which cost nothing).
+
+Async input/output gates:
+
+- SelectOut - select output gate to use
+
+- Out - push top of stack onto output gate
+
+- OutFull - true if the output is full
+
+- SelectIn - select input gate to use
+
+- In - take input gate onto top of stack
+
+- InEmpty - true if the input is empty
+
+The writing north output gate:
+
+- Out - index, value combination to write
+
+- When consumed a single remaining number just remains on the queue.
+
+How can we then process this efficiently? The ECS needs to be supplemented by a
+neighbor map, which contains the write/read requests. There can be a write
+request component. And a read request component. We then execute write
+requests, which involves changing our own cell. Read request components
+result in a modification of that read request by our current data.
+
+Issue Write Request
+Write Request stored with appropriate location
+
+Process write request
+
+Issue Read Request (which includes origin location)
+Read request stored with appropriate location
+
+Process read request, updating it and storing it with the appropriate
+location it came from
+
+cell, processors, environment
+
+environment component has reference to other cell components
