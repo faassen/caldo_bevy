@@ -51,8 +51,14 @@ enum Instr {
     Label,
     Jump,
     // Read & write instructions
+    // Writing costs materials, except for Noop instruction
     // Read,
     // Write,
+
+    // Instruction stack inspection
+    // Converts instruction stack entry to value stack and vice versa
+    // PopInstr,
+    // PushInstr,
 
     // Input and output gates to interact with world
     // these drive metabolism, where we're reading, where we're writing,
