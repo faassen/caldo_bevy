@@ -732,7 +732,30 @@ mod tests {
         assert_eq!(p.data_pop(), 5);
         assert_eq!(p.data_pop(), 0);
     }
-    // XXX multiple labels test
+
+    #[test]
+    fn test_label_and_jump_multiple() {
+        let mut c = Cell::new();
+        c.set_gene(
+            0,
+            vec![
+                Instr::Number(1),
+                Instr::Number(1),
+                Instr::Label, // set label 1
+                Instr::Number(2),
+                Instr::Number(2),
+                Instr::Label, // set label 2
+                Instr::Number(2),
+                Instr::Jump, // jump to label 2
+            ],
+        );
+        let mut p = Processor::new();
+        p.execute(&c, 9);
+        assert_eq!(p.data_pop(), 2);
+        assert_eq!(p.data_pop(), 2);
+        assert_eq!(p.data_pop(), 1);
+        assert_eq!(p.data_pop(), 0);
+    }
 
     #[test]
     fn test_call_and_return_in_cell() {
@@ -803,4 +826,32 @@ mod tests {
         assert_eq!(p.data_pop(), 1);
         assert_eq!(p.data_pop(), 18);
     }
+
+    #[test]
+    fn test_return_from_gene0() {
+        let mut c = Cell::new();
+        c.set_gene(0, vec![Instr::Number(1), Instr::Return]);
+        let mut p = Processor::new();
+        p.execute(&c, 3);
+        // history is lost by returning from the main gene,
+        // so it should be just a single 1 on the stack
+        assert_eq!(p.data_pop(), 1);
+        assert_eq!(p.data_pop(), 0);
+    }
+
+    #[test]
+    fn test_implicit_return_from_gene0() {
+        let mut c = Cell::new();
+        c.set_gene(0, vec![Instr::Number(1)]);
+        let mut p = Processor::new();
+        p.execute(&c, 50);
+        // history is lost by returning from the main gene,
+        // so it should be just a single 1 on the stack
+        assert_eq!(p.data_pop(), 1);
+        assert_eq!(p.data_pop(), 0);
+    }
+
+    // XXX tests
+    // implicit return from gene 0
+    // q: should a return from gene 0 reset all the stacks?
 }
