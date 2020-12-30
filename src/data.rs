@@ -851,7 +851,5 @@ mod tests {
         assert_eq!(p.data_pop(), 0);
     }
 
-    // XXX tests
-    // implicit return from gene 0
     // q: should a return from gene 0 reset all the stacks?
 }
