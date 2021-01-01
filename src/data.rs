@@ -12,7 +12,7 @@ const CALL_STACK_SIZE: u8 = 32;
 const CALL_STACK_HALF_SIZE: u8 = CALL_STACK_SIZE / 2;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-enum Instr {
+pub enum Instr {
     Number(u8),
     // Nothing
     Noop,
@@ -91,7 +91,7 @@ pub struct Processor {
 }
 
 #[derive(Debug, Copy, Clone)]
-struct Cell {
+pub struct Cell {
     genes: [[Instr; GENE_SIZE]; GENE_AMOUNT],
 }
 

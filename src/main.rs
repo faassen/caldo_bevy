@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 
 mod data;
+use data::{Cell, Instr, Processor};
 
 struct Position {
     x: u64,
@@ -107,6 +108,13 @@ fn print_neighbor_system(position_map: Res<PositionMap>, query: Query<(Entity, &
         )
     }
 }
+
+// to efficiently render part of a huge world we need a good
+// space partitioning system
+// can this be used to make neighborhood checks more efficient too?
+
+// we can keep track of which things are in which partition by
+// tracking position changes, but can see before the changes then?
 
 #[bevy_main]
 fn main() {

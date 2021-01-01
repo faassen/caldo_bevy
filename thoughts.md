@@ -176,3 +176,61 @@ location it came from
 cell, processors, environment
 
 environment component has reference to other cell components
+
+If we use a kdtree we could fix two things at once:
+
+Brocolli?
+
+https://github.com/tiby312/broccoli
+
+What's the difference between this and broccoli? brocolli seems to be a clone?
+ah it is deprecated apparently.
+
+https://github.com/tiby312/dinotree_alg
+
+Brocolli also makes the tree on the fly for each frame it appears.
+Though it does appear to be fast it won't scale with a lot of entities
+as well as a dynamic data structure that does space partitioning?
+
+ncollide?
+
+or nphysics, run a slow update physics simulation. the problem
+with it is that it's relatively slow.
+
+Input/output is a bit like a normal instruction, but split into pieces:
+
+So, we can push items to an input output channels in one step
+
+And get back the results in another step
+
+1 out1
+1 2 out2
+1 2 3 out3
+
+And:
+
+in1
+in2
+in3
+
+has_in
+
+we can also set the port
+
+3 port (input output port 3)
+
+if a lot of out calls follow each other, these are batched in
+an array, and processed one by one,
+
+The problem with this is that we don't know which input belows with which
+output - that is, if we do multiple outs we may get multiple ins, but we
+don't know how many. So it's more like an output stream and an input
+stream.
+
+bvh seems to allow update in a static scene:
+
+https://docs.rs/crate/bvh/0.3.2
+
+Flat spatial seems to be simplest:
+
+https://docs.rs/crate/flat_spatial/0.3.7
