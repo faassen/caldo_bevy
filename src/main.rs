@@ -1,7 +1,13 @@
 use bevy::prelude::*;
-use std::collections::HashMap;
 
 mod data;
+mod renderplugin;
+use bevy_rapier2d::physics::{RapierConfiguration, RapierPhysicsPlugin};
+use bevy_rapier2d::rapier::dynamics::RigidBodyBuilder;
+use bevy_rapier2d::rapier::geometry::ColliderBuilder;
+
+// use bevy_rapier2d::render::RapierRenderPlugin;
+
 use data::{Cell, Instr, Processor};
 
 struct Position {
@@ -11,66 +17,6 @@ struct Position {
 
 struct Name {
     name: String,
-}
-
-struct PositionMap {
-    map: HashMap<(u64, u64), [Option<Entity>; 4]>,
-}
-
-impl PositionMap {
-    pub fn new() -> PositionMap {
-        PositionMap {
-            map: HashMap::new(),
-        }
-    }
-
-    fn add(&mut self, entity: Entity, position: (u64, u64)) {
-        let (x, y) = position;
-        if y > 0 {
-            let north = self.map.entry((x, y - 1)).or_insert([None; 4]);
-            north[2] = Some(entity);
-        }
-        if x < u64::MAX {
-            let east = self.map.entry((x + 1, y)).or_insert([None; 4]);
-            east[3] = Some(entity);
-        }
-        if y < u64::MAX {
-            let south = self.map.entry((x, y + 1)).or_insert([None; 4]);
-            south[0] = Some(entity);
-        }
-        if x > 0 {
-            let west = self.map.entry((x - 1, y)).or_insert([None; 4]);
-            west[1] = Some(entity);
-        }
-    }
-
-    fn remove(&mut self, position: (u64, u64)) {
-        let (x, y) = position;
-        if y > 0 {
-            let north = self.map.entry((x, y - 1)).or_insert([None; 4]);
-            north[2] = None;
-        }
-        if x < u64::MAX {
-            let east = self.map.entry((x + 1, y)).or_insert([None; 4]);
-            east[3] = None;
-        }
-        if y < u64::MAX {
-            let south = self.map.entry((x, y + 1)).or_insert([None; 4]);
-            south[0] = None;
-        }
-        if x > 0 {
-            let west = self.map.entry((x - 1, y)).or_insert([None; 4]);
-            west[1] = None;
-        }
-    }
-
-    fn get_neighbor(&self, position: (u64, u64), direction: usize) -> Option<Entity> {
-        self.get_neighbors(position)[direction]
-    }
-
-    fn get_neighbors(&self, position: (u64, u64)) -> &[Option<Entity>; 4] {
-        self.map.get(&(position)).unwrap_or_else(|| &[None; 4])
-    }
 }
 
 // we could detect whether position has changed
@@ -89,25 +35,25 @@ fn setup_entities(commands: &mut Commands) {
     commands.spawn((Position { x: 9, y: 12 }, Name { name: "E".into() }));
 }
 
-fn update_position_map(mut position_map: ResMut<PositionMap>, query: Query<(Entity, &Position)>) {
-    for (entity, position) in query.iter() {
-        position_map.add(entity, (position.x, position.y));
-    }
-}
+// fn update_position_map(mut position_map: ResMut<PositionMap>, query: Query<(Entity, &Position)>) {
+//     for (entity, position) in query.iter() {
+//         position_map.add(entity, (position.x, position.y));
+//     }
+// }
 
-fn print_neighbor_system(position_map: Res<PositionMap>, query: Query<(Entity, &Name, &Position)>) {
-    println!("Print neighbor system");
-    for (entity, name, position) in query.iter() {
-        println!(
-            "entity {:?}, name {} position: {:?} {:?}",
-            entity, name.name, position.x, position.y
-        );
-        println!(
-            "Neighbor entities {:?}",
-            position_map.get_neighbors((position.x, position.y))
-        )
-    }
-}
+// fn print_neighbor_system(position_map: Res<PositionMap>, query: Query<(Entity, &Name, &Position)>) {
+//     println!("Print neighbor system");
+//     for (entity, name, position) in query.iter() {
+//         println!(
+//             "entity {:?}, name {} position: {:?} {:?}",
+//             entity, name.name, position.x, position.y
+//         );
+//         println!(
+//             "Neighbor entities {:?}",
+//             position_map.get_neighbors((position.x, position.y))
+//         )
+//     }
+// }
 
 // to efficiently render part of a huge world we need a good
 // space partitioning system
@@ -116,13 +62,47 @@ fn print_neighbor_system(position_map: Res<PositionMap>, query: Query<(Entity, &
 // we can keep track of which things are in which partition by
 // tracking position changes, but can see before the changes then?
 
+fn setup_physics(commands: &mut Commands) {
+    // Static rigid-body with a cuboid shape.
+    let rigid_body1 = RigidBodyBuilder::new_static();
+    let collider1 = ColliderBuilder::cuboid(10.0, 1.0);
+    commands.spawn((rigid_body1, collider1));
+
+    // Dynamic rigid-body with ball shape.
+    let rigid_body2 = RigidBodyBuilder::new_dynamic().translation(0.0, 50.0);
+    let collider2 = ColliderBuilder::cuboid(1.0, 1.0);
+    commands.spawn((rigid_body2, collider2));
+}
+
+fn setup_graphics(commands: &mut Commands, mut configuration: ResMut<RapierConfiguration>) {
+    configuration.scale = 10.0;
+
+    commands
+        .spawn(LightBundle {
+            transform: Transform::from_translation(Vec3::new(1000.0, 100.0, 2000.0)),
+            ..Default::default()
+        })
+        .spawn(Camera2dBundle {
+            transform: Transform::from_translation(Vec3::new(0.0, 200.0, 0.0)),
+            ..Camera2dBundle::default()
+        });
+}
+
 #[bevy_main]
 fn main() {
     App::build()
-        .add_resource(PositionMap::new())
-        .add_startup_system(setup_entities.system())
-        .add_startup_stage_after(stage::STARTUP, "finalize_startup", SystemStage::parallel())
-        .add_startup_system_to_stage("finalize_startup", update_position_map.system())
-        .add_system(print_neighbor_system.system())
+        .add_resource(ClearColor(Color::rgb(
+            0xF9 as f32 / 255.0,
+            0xF9 as f32 / 255.0,
+            0xFF as f32 / 255.0,
+        )))
+        .add_resource(Msaa::default())
+        .add_plugins(DefaultPlugins)
+        .add_plugin(bevy_winit::WinitPlugin::default())
+        .add_plugin(bevy_wgpu::WgpuPlugin::default())
+        .add_plugin(RapierPhysicsPlugin)
+        .add_plugin(renderplugin::RapierRenderPlugin)
+        .add_startup_system(setup_graphics.system())
+        .add_startup_system(setup_physics.system())
         .run();
 }
