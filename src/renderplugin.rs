@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy::render::mesh::{Indices, VertexAttributeValues};
 use bevy_prototype_lyon::prelude::*;
 use bevy_rapier2d::physics::{ColliderHandleComponent, RapierConfiguration};
+use lyon_tessellation::FillOptions;
 use nalgebra as na;
 use rapier2d::dynamics::RigidBodySet;
 use rapier2d::geometry::{ColliderSet, ShapeType as RapierShapeType};
@@ -78,39 +79,12 @@ pub fn create_collider_renders_system(
                     .map(|c| Color::rgb(c.0, c.1, c.2))
                     .unwrap_or(default_color);
 
-                let mesh = match shape.shape_type() {
-                    RapierShapeType::Cuboid => Mesh::from(shape::Quad {
-                        size: Vec2::new(2.0, 2.0),
-                        flip: false,
-                    }),
-                    RapierShapeType::Ball => Mesh::from(shape::Icosphere {
-                        subdivisions: 2,
-                        radius: 3.0,
-                    }),
-                    RapierShapeType::Trimesh => {
-                        let mut mesh =
-                            Mesh::new(bevy::render::pipeline::PrimitiveTopology::TriangleList);
-                        let trimesh = shape.as_trimesh().unwrap();
-                        mesh.set_attribute(
-                            Mesh::ATTRIBUTE_POSITION,
-                            VertexAttributeValues::from(
-                                trimesh
-                                    .vertices()
-                                    .iter()
-                                    .map(|vertice| [vertice.x, vertice.y])
-                                    .collect::<Vec<_>>(),
-                            ),
-                        );
-                        mesh.set_indices(Some(Indices::U32(
-                            trimesh
-                                .indices()
-                                .iter()
-                                .flat_map(|triangle| triangle.iter())
-                                .cloned()
-                                .collect(),
-                        )));
-                        mesh
-                    }
+                let lyon_shape: ShapeType = match shape.shape_type() {
+                    RapierShapeType::Cuboid => ShapeType::Rectangle {
+                        width: 2.0,
+                        height: 2.0,
+                    },
+                    RapierShapeType::Ball => ShapeType::Circle(1.0),
                     _ => unimplemented!(),
                 };
 
@@ -123,36 +97,35 @@ pub fn create_collider_renders_system(
                         let b = shape.as_ball().unwrap();
                         Vec3::new(b.radius, b.radius, b.radius)
                     }
-                    RapierShapeType::Trimesh => Vec3::one(),
                     _ => unimplemented!(),
                 } * configuration.scale;
 
-                let mut transform = Transform::from_scale(scale);
+                let mut pbr = primitive(
+                    materials.add(color.into()),
+                    &mut meshes,
+                    lyon_shape,
+                    TessellationMode::Fill(&FillOptions::default()),
+                    Vec3::new(0.0, 0.0, 0.0),
+                );
+
+                pbr.transform.scale = scale;
+
+                // let mut transform = Transform::from_scale(scale);
                 sync_transform(
                     collider.position_wrt_parent(),
                     configuration.scale,
-                    &mut transform,
+                    &mut pbr.transform,
                 );
 
-                let prim = primitive(
-                    materials.add(color.into()),
-                    &mut meshes,
-                    ShapeType::Ellipse {
-                        radius_x: 50.0,
-                        radius_y: 50.0,
-                    },
-                    TessellationMode::Stroke(&StrokeOptions::default().with_line_width(30.0)),
-                    Vec3::new(0.0, -50.0, 0.0),
-                );
-
-                // let ground_pbr = PbrBundle {
-                //     mesh: meshes.add(mesh),
-                //     material: materials.add(color.into()),
-                //     transform,
-                //     ..Default::default()
-                // };
-
-                commands.insert(entity, prim);
+                // let mut pbr = primitive(
+                //     materials.add(color.into()),
+                //     &mut meshes,
+                //     lyon_shape,
+                //     TessellationMode::Fill(&FillOptions::default()),
+                //     Vec3::new(0.0, 0.0, 0.0),
+                // );
+                // pbr.transform = transform;
+                commands.insert(entity, pbr);
             }
         }
     }

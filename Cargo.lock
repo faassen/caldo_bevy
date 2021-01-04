@@ -697,6 +697,7 @@ dependencies = [
  "bevy_rapier2d",
  "bevy_wgpu",
  "bevy_winit",
+ "lyon_tessellation",
  "nalgebra",
  "rapier2d",
 ]

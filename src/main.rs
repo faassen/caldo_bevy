@@ -97,7 +97,7 @@ fn main() {
             0xF9 as f32 / 255.0,
             0xFF as f32 / 255.0,
         )))
-        // XXX what does this do? Some kind of anti aliassing?
+        // Some kind of anti aliassing?
         .add_resource(Msaa::default())
         // default bevy plugins. Required to make physics work
         .add_plugins(DefaultPlugins)
