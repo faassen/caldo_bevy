@@ -1,9 +1,10 @@
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, VertexAttributeValues};
+use bevy_prototype_lyon::prelude::*;
 use bevy_rapier2d::physics::{ColliderHandleComponent, RapierConfiguration};
 use nalgebra as na;
 use rapier2d::dynamics::RigidBodySet;
-use rapier2d::geometry::{ColliderSet, ShapeType};
+use rapier2d::geometry::{ColliderSet, ShapeType as RapierShapeType};
 use rapier2d::math::Isometry;
 use std::collections::HashMap;
 
@@ -23,7 +24,7 @@ pub struct RapierRenderColor(pub f32, pub f32, pub f32);
 pub fn create_collider_renders_system(
     commands: &mut Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
     configuration: Res<RapierConfiguration>,
     bodies: Res<RigidBodySet>,
     colliders: ResMut<ColliderSet>,
@@ -78,15 +79,15 @@ pub fn create_collider_renders_system(
                     .unwrap_or(default_color);
 
                 let mesh = match shape.shape_type() {
-                    ShapeType::Cuboid => Mesh::from(shape::Quad {
+                    RapierShapeType::Cuboid => Mesh::from(shape::Quad {
                         size: Vec2::new(2.0, 2.0),
                         flip: false,
                     }),
-                    ShapeType::Ball => Mesh::from(shape::Icosphere {
+                    RapierShapeType::Ball => Mesh::from(shape::Icosphere {
                         subdivisions: 2,
-                        radius: 1.0,
+                        radius: 3.0,
                     }),
-                    ShapeType::Trimesh => {
+                    RapierShapeType::Trimesh => {
                         let mut mesh =
                             Mesh::new(bevy::render::pipeline::PrimitiveTopology::TriangleList);
                         let trimesh = shape.as_trimesh().unwrap();
@@ -114,15 +115,15 @@ pub fn create_collider_renders_system(
                 };
 
                 let scale = match shape.shape_type() {
-                    ShapeType::Cuboid => {
+                    RapierShapeType::Cuboid => {
                         let c = shape.as_cuboid().unwrap();
                         Vec3::new(c.half_extents.x, c.half_extents.y, 1.0)
                     }
-                    ShapeType::Ball => {
+                    RapierShapeType::Ball => {
                         let b = shape.as_ball().unwrap();
                         Vec3::new(b.radius, b.radius, b.radius)
                     }
-                    ShapeType::Trimesh => Vec3::one(),
+                    RapierShapeType::Trimesh => Vec3::one(),
                     _ => unimplemented!(),
                 } * configuration.scale;
 
@@ -133,20 +134,31 @@ pub fn create_collider_renders_system(
                     &mut transform,
                 );
 
-                let ground_pbr = PbrBundle {
-                    mesh: meshes.add(mesh),
-                    material: materials.add(color.into()),
-                    transform,
-                    ..Default::default()
-                };
+                let prim = primitive(
+                    materials.add(color.into()),
+                    &mut meshes,
+                    ShapeType::Ellipse {
+                        radius_x: 50.0,
+                        radius_y: 50.0,
+                    },
+                    TessellationMode::Stroke(&StrokeOptions::default().with_line_width(30.0)),
+                    Vec3::new(0.0, -50.0, 0.0),
+                );
 
-                commands.insert(entity, ground_pbr);
+                // let ground_pbr = PbrBundle {
+                //     mesh: meshes.add(mesh),
+                //     material: materials.add(color.into()),
+                //     transform,
+                //     ..Default::default()
+                // };
+
+                commands.insert(entity, prim);
             }
         }
     }
 }
 
-pub(crate) fn sync_transform(pos: &Isometry<f32>, scale: f32, transform: &mut Transform) {
+fn sync_transform(pos: &Isometry<f32>, scale: f32, transform: &mut Transform) {
     // Do not touch the 'z' part of the translation, used in Bevy for 2d layering
     transform.translation.x = pos.translation.vector.x * scale;
     transform.translation.y = pos.translation.vector.y * scale;
