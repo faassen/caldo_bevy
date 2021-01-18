@@ -2,65 +2,22 @@ use bevy::prelude::*;
 use bevy_prototype_lyon::prelude::ShapePlugin;
 mod data;
 mod renderplugin;
-use bevy_rapier2d::physics::{RapierConfiguration, RapierPhysicsPlugin};
+use bevy_rapier2d::physics::{
+    JointBuilderComponent, RapierConfiguration, RapierPhysicsPlugin, RigidBodyHandleComponent,
+};
 use bevy_rapier2d::rapier::dynamics::RigidBodyBuilder;
 use bevy_rapier2d::rapier::geometry::ColliderBuilder;
-
-// use bevy_rapier2d::render::RapierRenderPlugin;
-
 use data::{Cell, Instr, Processor};
+use na::Point2;
+use nalgebra as na;
+use rapier2d::dynamics::RigidBodySet;
+use rapier2d::dynamics::{BallJoint, FixedJoint, PrismaticJoint};
+use rapier2d::math::Vector;
 
-struct Position {
-    x: u64,
-    y: u64,
+struct Thruster {
+    side: u8,
+    on: bool,
 }
-
-struct Name {
-    name: String,
-}
-
-// we could detect whether position has changed
-// if position changes, we update the neighbors components of these
-// places
-
-//      A
-//      B C
-//    E D
-
-fn setup_entities(commands: &mut Commands) {
-    commands.spawn((Position { x: 10, y: 10 }, Name { name: "A".into() }));
-    commands.spawn((Position { x: 10, y: 11 }, Name { name: "B".into() }));
-    commands.spawn((Position { x: 11, y: 11 }, Name { name: "C".into() }));
-    commands.spawn((Position { x: 10, y: 12 }, Name { name: "D".into() }));
-    commands.spawn((Position { x: 9, y: 12 }, Name { name: "E".into() }));
-}
-
-// fn update_position_map(mut position_map: ResMut<PositionMap>, query: Query<(Entity, &Position)>) {
-//     for (entity, position) in query.iter() {
-//         position_map.add(entity, (position.x, position.y));
-//     }
-// }
-
-// fn print_neighbor_system(position_map: Res<PositionMap>, query: Query<(Entity, &Name, &Position)>) {
-//     println!("Print neighbor system");
-//     for (entity, name, position) in query.iter() {
-//         println!(
-//             "entity {:?}, name {} position: {:?} {:?}",
-//             entity, name.name, position.x, position.y
-//         );
-//         println!(
-//             "Neighbor entities {:?}",
-//             position_map.get_neighbors((position.x, position.y))
-//         )
-//     }
-// }
-
-// to efficiently render part of a huge world we need a good
-// space partitioning system
-// can this be used to make neighborhood checks more efficient too?
-
-// we can keep track of which things are in which partition by
-// tracking position changes, but can see before the changes then?
 
 fn setup_physics(commands: &mut Commands) {
     // Static rigid-body with a cuboid shape.
@@ -68,31 +25,47 @@ fn setup_physics(commands: &mut Commands) {
     let collider1 = ColliderBuilder::cuboid(10.0, 1.0);
     commands.spawn((rigid_body1, collider1));
 
-    // Dynamic rigid-body with cube shape.
-    let iter = 0..10;
-    iter.for_each(|item| {
-        let rigid_body2 = RigidBodyBuilder::new_dynamic().translation((item as f32) * 2.0, 50.0);
-        let collider2 = ColliderBuilder::cuboid(1.0, 1.0);
-        commands.spawn((rigid_body2, collider2));
-    });
-    let iter = 0..10;
-    iter.for_each(|item| {
-        let rigid_body2 = RigidBodyBuilder::new_dynamic()
-            .translation((item as f32) * 2.0, 55.0)
-            .mass(100.0, true);
-        let collider2 = ColliderBuilder::ball(1.0).friction(0.).restitution(1.0);
-        commands.spawn((rigid_body2, collider2));
-    });
-    let iter = 0..10;
-    iter.for_each(|item| {
-        let rigid_body2 = RigidBodyBuilder::new_dynamic()
-            .translation((item as f32) * 3.0, 55.0 + (item as f32 * 3.0))
-            .mass(1000.0, true);
-        let collider2 = ColliderBuilder::cuboid(1.5, 1.5)
-            .friction(0.)
-            .restitution(1.0);
-        commands.spawn((rigid_body2, collider2));
-    });
+    let a_body = RigidBodyBuilder::new_dynamic().translation(0.0, 50.0);
+    let a_collider = ColliderBuilder::cuboid(1.0, 1.0);
+    let a_entity = commands
+        .spawn((a_body, a_collider, Thruster { side: 2, on: true }))
+        .current_entity()
+        .unwrap();
+
+    let b_body = RigidBodyBuilder::new_dynamic().translation(4.0, 50.0);
+    let b_collider = ColliderBuilder::cuboid(1.0, 1.0).friction(0.0);
+    let b_entity = commands
+        .spawn((b_body, b_collider))
+        .current_entity()
+        .unwrap();
+
+    // let joint = BallJoint::new(Point2::new(1.0, 0.0), Point2::new(-1.0, 0.0));
+    // commands.spawn((JointBuilderComponent::new(joint, a_entity, b_entity),));
+    // // Dynamic rigid-body with cube shape.
+    // let iter = 0..10;
+    // iter.for_each(|item| {
+    //     let rigid_body2 = RigidBodyBuilder::new_dynamic().translation((item as f32) * 2.0, 50.0);
+    //     let collider2 = ColliderBuilder::cuboid(1.0, 1.0);
+    //     commands.spawn((rigid_body2, collider2));
+    // });
+    // let iter = 0..10;
+    // iter.for_each(|item| {
+    //     let rigid_body2 = RigidBodyBuilder::new_dynamic()
+    //         .translation((item as f32) * 2.0, 55.0)
+    //         .mass(100.0, true);
+    //     let collider2 = ColliderBuilder::ball(1.0).friction(0.).restitution(1.0);
+    //     commands.spawn((rigid_body2, collider2));
+    // });
+    // let iter = 0..10;
+    // iter.for_each(|item| {
+    //     let rigid_body2 = RigidBodyBuilder::new_dynamic()
+    //         .translation((item as f32) * 3.0, 55.0 + (item as f32 * 3.0))
+    //         .mass(1000.0, true);
+    //     let collider2 = ColliderBuilder::cuboid(1.5, 1.5)
+    //         .friction(0.)
+    //         .restitution(1.0);
+    //     commands.spawn((rigid_body2, collider2));
+    // });
 }
 
 fn setup_graphics(commands: &mut Commands, mut configuration: ResMut<RapierConfiguration>) {
@@ -107,6 +80,16 @@ fn setup_graphics(commands: &mut Commands, mut configuration: ResMut<RapierConfi
             transform: Transform::from_translation(Vec3::new(0.0, 200.0, 0.0)),
             ..Camera2dBundle::default()
         });
+}
+
+fn thruster_system(
+    mut bodies: ResMut<RigidBodySet>,
+    query: Query<(&RigidBodyHandleComponent, &Thruster)>,
+) {
+    for (rigid_body_handle, thruster) in query.iter() {
+        let body = bodies.get_mut(rigid_body_handle.handle()).unwrap();
+        body.apply_impulse(Vector::new(0.0, 1.0), true);
+    }
 }
 
 #[bevy_main]
@@ -131,9 +114,14 @@ fn main() {
         .add_plugin(RapierPhysicsPlugin)
         // our own render plugin, based on Rapier's for now
         .add_plugin(renderplugin::RapierRenderPlugin)
+        .add_resource(RapierConfiguration {
+            gravity: Vector::new(0.0, 0.0),
+            ..Default::default()
+        })
         // set up graphics
         .add_startup_system(setup_graphics.system())
         // setup physics
         .add_startup_system(setup_physics.system())
+        .add_system(thruster_system.system())
         .run();
 }
