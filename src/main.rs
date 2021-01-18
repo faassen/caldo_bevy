@@ -8,7 +8,7 @@ use bevy_rapier2d::physics::{
 use bevy_rapier2d::rapier::dynamics::RigidBodyBuilder;
 use bevy_rapier2d::rapier::geometry::ColliderBuilder;
 use data::{Cell, Instr, Processor};
-use na::Point2;
+use na::{Point2, Rotation2, Vector2};
 use nalgebra as na;
 use rapier2d::dynamics::RigidBodySet;
 use rapier2d::dynamics::{BallJoint, FixedJoint, PrismaticJoint};
@@ -32,7 +32,9 @@ fn setup_physics(commands: &mut Commands) {
     let collider1 = ColliderBuilder::cuboid(10.0, 1.0);
     commands.spawn((rigid_body1, collider1));
 
-    let a_body = RigidBodyBuilder::new_dynamic().translation(0.0, 50.0);
+    let a_body = RigidBodyBuilder::new_dynamic()
+        .translation(0.0, 50.0)
+        .rotation(3.2);
     let a_collider = ColliderBuilder::cuboid(1.0, 1.0);
     let a_entity = commands
         .spawn((
@@ -109,13 +111,22 @@ fn thruster_system(
 ) {
     for (rigid_body_handle, thruster) in query.iter() {
         let body = bodies.get_mut(rigid_body_handle.handle()).unwrap();
+        let t = body.position();
+        // let rotation = pos.rotation;
+
+        // let matrix = rotation.to_rotation_matrix();
         let v = match thruster.side {
-            Side::North => Vector::new(0.0, -0.1),
-            Side::East => Vector::new(-0.1, 0.0),
-            Side::South => Vector::new(0.0, 0.1),
-            Side::West => Vector::new(0.1, 0.0),
+            Side::North => Vector2::new(0.0, -0.1),
+            Side::East => Vector2::new(-0.1, 0.0),
+            Side::South => Vector2::new(0.0, 0.1),
+            Side::West => Vector2::new(0.1, 0.0),
         };
-        body.apply_impulse(v, true);
+
+        let r = t * v;
+
+        // let r = v * matrix;
+
+        body.apply_impulse(r, true);
     }
 }
 
