@@ -68,10 +68,31 @@ fn setup_physics(commands: &mut Commands) {
     let collider1 = ColliderBuilder::cuboid(10.0, 1.0);
     commands.spawn((rigid_body1, collider1));
 
-    // Dynamic rigid-body with ball shape.
-    let rigid_body2 = RigidBodyBuilder::new_dynamic().translation(0.0, 50.0);
-    let collider2 = ColliderBuilder::cuboid(1.0, 1.0);
-    commands.spawn((rigid_body2, collider2));
+    // Dynamic rigid-body with cube shape.
+    let iter = 0..10;
+    iter.for_each(|item| {
+        let rigid_body2 = RigidBodyBuilder::new_dynamic().translation((item as f32) * 2.0, 50.0);
+        let collider2 = ColliderBuilder::cuboid(1.0, 1.0);
+        commands.spawn((rigid_body2, collider2));
+    });
+    let iter = 0..10;
+    iter.for_each(|item| {
+        let rigid_body2 = RigidBodyBuilder::new_dynamic()
+            .translation((item as f32) * 2.0, 55.0)
+            .mass(100.0, true);
+        let collider2 = ColliderBuilder::ball(1.0).friction(0.).restitution(1.0);
+        commands.spawn((rigid_body2, collider2));
+    });
+    let iter = 0..10;
+    iter.for_each(|item| {
+        let rigid_body2 = RigidBodyBuilder::new_dynamic()
+            .translation((item as f32) * 3.0, 55.0 + (item as f32 * 3.0))
+            .mass(1000.0, true);
+        let collider2 = ColliderBuilder::cuboid(1.5, 1.5)
+            .friction(0.)
+            .restitution(1.0);
+        commands.spawn((rigid_body2, collider2));
+    });
 }
 
 fn setup_graphics(commands: &mut Commands, mut configuration: ResMut<RapierConfiguration>) {
