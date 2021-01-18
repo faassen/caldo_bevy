@@ -14,8 +14,15 @@ use rapier2d::dynamics::RigidBodySet;
 use rapier2d::dynamics::{BallJoint, FixedJoint, PrismaticJoint};
 use rapier2d::math::Vector;
 
+enum Side {
+    North,
+    East,
+    South,
+    West,
+}
+
 struct Thruster {
-    side: u8,
+    side: Side,
     on: bool,
 }
 
@@ -28,14 +35,28 @@ fn setup_physics(commands: &mut Commands) {
     let a_body = RigidBodyBuilder::new_dynamic().translation(0.0, 50.0);
     let a_collider = ColliderBuilder::cuboid(1.0, 1.0);
     let a_entity = commands
-        .spawn((a_body, a_collider, Thruster { side: 2, on: true }))
+        .spawn((
+            a_body,
+            a_collider,
+            Thruster {
+                side: Side::South,
+                on: true,
+            },
+        ))
         .current_entity()
         .unwrap();
 
     let b_body = RigidBodyBuilder::new_dynamic().translation(4.0, 50.0);
     let b_collider = ColliderBuilder::cuboid(1.0, 1.0).friction(0.0);
     let b_entity = commands
-        .spawn((b_body, b_collider))
+        .spawn((
+            b_body,
+            b_collider,
+            Thruster {
+                side: Side::West,
+                on: true,
+            },
+        ))
         .current_entity()
         .unwrap();
 
@@ -88,7 +109,13 @@ fn thruster_system(
 ) {
     for (rigid_body_handle, thruster) in query.iter() {
         let body = bodies.get_mut(rigid_body_handle.handle()).unwrap();
-        body.apply_impulse(Vector::new(0.0, 1.0), true);
+        let v = match thruster.side {
+            Side::North => Vector::new(0.0, -0.1),
+            Side::East => Vector::new(-0.1, 0.0),
+            Side::South => Vector::new(0.0, 0.1),
+            Side::West => Vector::new(0.1, 0.0),
+        };
+        body.apply_impulse(v, true);
     }
 }
 
