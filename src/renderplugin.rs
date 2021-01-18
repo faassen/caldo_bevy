@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy::render::mesh::{Indices, VertexAttributeValues};
 use bevy_prototype_lyon::prelude::*;
 use bevy_rapier2d::physics::{ColliderHandleComponent, RapierConfiguration};
-use lyon_tessellation::FillOptions;
+use lyon_tessellation::{FillOptions, TessellationError};
 use nalgebra as na;
 use rapier2d::dynamics::RigidBodySet;
 use rapier2d::geometry::{ColliderSet, ShapeType as RapierShapeType};
@@ -72,21 +72,11 @@ pub fn create_collider_renders_system(
                         palette[icolor % palette.len()]
                     })
                 };
-
-                let shape = collider.shape();
-
                 let color = debug_color
                     .map(|c| Color::rgb(c.0, c.1, c.2))
                     .unwrap_or(default_color);
 
-                let lyon_shape: ShapeType = match shape.shape_type() {
-                    RapierShapeType::Cuboid => ShapeType::Rectangle {
-                        width: 2.0,
-                        height: 2.0,
-                    },
-                    RapierShapeType::Ball => ShapeType::Circle(1.0),
-                    _ => unimplemented!(),
-                };
+                let shape = collider.shape();
 
                 let scale = match shape.shape_type() {
                     RapierShapeType::Cuboid => {
@@ -100,32 +90,32 @@ pub fn create_collider_renders_system(
                     _ => unimplemented!(),
                 } * configuration.scale;
 
-                let mut pbr = primitive(
-                    materials.add(color.into()),
-                    &mut meshes,
-                    lyon_shape,
-                    TessellationMode::Fill(&FillOptions::default()),
-                    Vec3::new(0.0, 0.0, 0.0),
-                );
+                let mut transform = Transform::from_scale(scale);
 
-                pbr.transform.scale = scale;
-
-                // let mut transform = Transform::from_scale(scale);
                 sync_transform(
                     collider.position_wrt_parent(),
                     configuration.scale,
-                    &mut pbr.transform,
+                    &mut transform,
                 );
 
-                // let mut pbr = primitive(
-                //     materials.add(color.into()),
-                //     &mut meshes,
-                //     lyon_shape,
-                //     TessellationMode::Fill(&FillOptions::default()),
-                //     Vec3::new(0.0, 0.0, 0.0),
-                // );
-                // pbr.transform = transform;
-                commands.insert(entity, pbr);
+                let material = materials.add(color.into());
+                let tessellation_mode = TessellationMode::Fill(FillOptions::default());
+
+                let bundle = match shape.shape_type() {
+                    RapierShapeType::Cuboid => shapes::Rectangle {
+                        width: 2.0,
+                        height: 2.0,
+                        ..Default::default()
+                    }
+                    .draw(material, tessellation_mode, transform),
+                    RapierShapeType::Ball => shapes::Circle {
+                        radius: 1.0,
+                        ..Default::default()
+                    }
+                    .draw(material, tessellation_mode, transform),
+                    _ => unimplemented!(),
+                };
+                commands.insert(entity, bundle);
             }
         }
     }

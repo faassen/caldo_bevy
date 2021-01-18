@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-
+use bevy_prototype_lyon::prelude::ShapePlugin;
 mod data;
 mod renderplugin;
 use bevy_rapier2d::physics::{RapierConfiguration, RapierPhysicsPlugin};
@@ -70,7 +70,7 @@ fn setup_physics(commands: &mut Commands) {
 
     // Dynamic rigid-body with ball shape.
     let rigid_body2 = RigidBodyBuilder::new_dynamic().translation(0.0, 50.0);
-    let collider2 = ColliderBuilder::ball(3.0);
+    let collider2 = ColliderBuilder::cuboid(1.0, 1.0);
     commands.spawn((rigid_body2, collider2));
 }
 
@@ -101,6 +101,7 @@ fn main() {
         .add_resource(Msaa::default())
         // default bevy plugins. Required to make physics work
         .add_plugins(DefaultPlugins)
+        .add_plugin(ShapePlugin)
         // winit window and input backend for Bevy (?)
         .add_plugin(bevy_winit::WinitPlugin::default())
         // wgpu backend for Bevy (?)
