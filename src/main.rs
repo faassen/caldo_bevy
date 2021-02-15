@@ -62,6 +62,34 @@ fn setup_physics(commands: &mut Commands) {
         .current_entity()
         .unwrap();
 
+    let c_body = RigidBodyBuilder::new_dynamic().translation(0.0, 40.0);
+    use std::f32::consts::PI;
+
+    let radius: f32 = 1.0;
+
+    let internal = (6.0 - 2.0) * PI / 6.0;
+    let offset = -internal / 2.0;
+
+    let mut points: Vec<Point2<f32>> = Vec::with_capacity(6);
+    let step = 2.0 * PI / 6.0;
+
+    for i in 0..6 {
+        let cur_angle = (i as f32).mul_add(step, offset);
+        let x = radius.mul_add(cur_angle.cos(), 0.0);
+        let y = radius.mul_add(cur_angle.sin(), 0.0);
+        points.push(Point2::new(x, y));
+    }
+    // println!("Points {:?}", points);
+    let c_collider = ColliderBuilder::convex_hull(&points).unwrap();
+    commands.spawn((
+        c_body,
+        c_collider,
+        Thruster {
+            side: Side::East,
+            on: true,
+        },
+    ));
+
     // let joint = BallJoint::new(Point2::new(1.0, 0.0), Point2::new(-1.0, 0.0));
     // commands.spawn((JointBuilderComponent::new(joint, a_entity, b_entity),));
     // Dynamic rigid-body with cube shape.

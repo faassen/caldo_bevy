@@ -8,11 +8,10 @@ edition = "2018"
 
 [dependencies]
 bevy = { version = "0.4", default-features = false} 
-bevy_rapier2d = { version = "0.8.0", features = [ "simd-stable", "parallel" ] } # features = [ "simd-stable", "parallel" ] }
+bevy_rapier2d = { version = "0.8.0" } # , features = [ "simd-stable", "parallel" ] }
 rapier2d = "0.5.0"
 bevy_wgpu = "0.4.0"
 bevy_winit = { version = "0.4.0", features = [ "x11" ] }
 nalgebra = "0.24.1"
-# bevy_prototype_lyon = "0.1.5"
 bevy_prototype_lyon = "0.2.0"
 lyon_tessellation = "0.17.1"

@@ -2,10 +2,10 @@ use bevy::prelude::*;
 use bevy::render::mesh::{Indices, VertexAttributeValues};
 use bevy_prototype_lyon::prelude::*;
 use bevy_rapier2d::physics::{ColliderHandleComponent, RapierConfiguration};
-use lyon_tessellation::{FillOptions, TessellationError};
+use lyon_tessellation::{math::point, FillOptions, TessellationError};
 use nalgebra as na;
 use rapier2d::dynamics::RigidBodySet;
-use rapier2d::geometry::{ColliderSet, ShapeType as RapierShapeType};
+use rapier2d::geometry::{ColliderSet, ConvexPolygon, ShapeType as RapierShapeType};
 use rapier2d::math::Isometry;
 use std::collections::HashMap;
 
@@ -87,6 +87,10 @@ pub fn create_collider_renders_system(
                         let b = shape.as_ball().unwrap();
                         Vec3::new(b.radius, b.radius, b.radius)
                     }
+                    RapierShapeType::ConvexPolygon => {
+                        let b = shape.as_convex_polygon().unwrap();
+                        Vec3::new(1.0, 1.0, 1.0)
+                    }
                     _ => unimplemented!(),
                 } * configuration.scale;
 
@@ -100,6 +104,7 @@ pub fn create_collider_renders_system(
 
                 let material = materials.add(color.into());
                 let tessellation_mode = TessellationMode::Fill(FillOptions::default());
+                // println!("Shape type {:?}", shape.shape_type());
                 let bundle = match shape.shape_type() {
                     RapierShapeType::Cuboid => GeometryBuilder::build_as(
                         &shapes::Rectangle {
@@ -120,6 +125,24 @@ pub fn create_collider_renders_system(
                         tessellation_mode,
                         transform,
                     ),
+                    RapierShapeType::ConvexPolygon => {
+                        println!("Yes");
+                        GeometryBuilder::build_as(
+                            &shapes::Polygon {
+                                points: shape
+                                    .as_convex_polygon()
+                                    .unwrap()
+                                    .points()
+                                    .iter()
+                                    .map(|p| Vec2::new(p.x, p.y))
+                                    .collect(),
+                                closed: true,
+                            },
+                            material,
+                            tessellation_mode,
+                            transform,
+                        )
+                    }
                     _ => unimplemented!(),
                 };
                 commands.insert(entity, bundle);
