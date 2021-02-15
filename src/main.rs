@@ -59,7 +59,7 @@ fn setup_physics(commands: &mut Commands) {
             a_body,
             a_collider,
             Thruster {
-                side: Side::South,
+                side: Side::North,
                 on: true,
             },
         ))
@@ -80,15 +80,26 @@ fn setup_physics(commands: &mut Commands) {
         .current_entity()
         .unwrap();
 
-    let c_body = RigidBodyBuilder::new_dynamic().translation(8.0, 45.0);
-
-    let points = regular_polygon(6, 1.0);
-
-    // println!("Points {:?}", points);
-    let c_collider = ColliderBuilder::convex_hull(&points).unwrap();
+    let c_body = RigidBodyBuilder::new_dynamic()
+        .translation(7.0, 45.0)
+        .mass(2.0);
+    let c_points = regular_polygon(6, 1.0);
+    let c_collider = ColliderBuilder::convex_hull(&c_points).unwrap();
     commands.spawn((
         c_body,
         c_collider,
+        Thruster {
+            side: Side::East,
+            on: true,
+        },
+    ));
+
+    let d_body = RigidBodyBuilder::new_dynamic().translation(5.0, 35.0);
+    let d_points = regular_polygon(6, 2.0);
+    let d_collider = ColliderBuilder::convex_hull(&d_points).unwrap();
+    commands.spawn((
+        d_body,
+        d_collider,
         Thruster {
             side: Side::East,
             on: true,
@@ -150,9 +161,9 @@ fn thruster_system(
 
         // let matrix = rotation.to_rotation_matrix();
         let v = match thruster.side {
-            Side::North => Vector2::new(0.0, -0.1),
+            Side::North => Vector2::new(0.0, 0.1),
             Side::East => Vector2::new(-0.1, 0.0),
-            Side::South => Vector2::new(0.0, 0.1),
+            Side::South => Vector2::new(0.0, -0.1),
             Side::West => Vector2::new(0.1, 0.0),
         };
 

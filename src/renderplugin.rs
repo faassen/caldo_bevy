@@ -81,15 +81,15 @@ pub fn create_collider_renders_system(
                 let scale = match shape.shape_type() {
                     RapierShapeType::Cuboid => {
                         let c = shape.as_cuboid().unwrap();
-                        Vec3::new(c.half_extents.x, c.half_extents.y, 1.0)
+                        let half_extents = c.half_extents;
+                        Vec3::new(half_extents.x, half_extents.y, 1.0)
                     }
                     RapierShapeType::Ball => {
                         let b = shape.as_ball().unwrap();
                         Vec3::new(b.radius, b.radius, b.radius)
                     }
                     RapierShapeType::ConvexPolygon => {
-                        let b = shape.as_convex_polygon().unwrap();
-                        // hardcoded dimensions, can we get this from shape somehow?
+                        // this seems to scale right, even though it's hard-coded
                         Vec3::new(1.0, 1.0, 1.0)
                     }
                     _ => unimplemented!(),
@@ -126,24 +126,21 @@ pub fn create_collider_renders_system(
                         tessellation_mode,
                         transform,
                     ),
-                    RapierShapeType::ConvexPolygon => {
-                        println!("Yes");
-                        GeometryBuilder::build_as(
-                            &shapes::Polygon {
-                                points: shape
-                                    .as_convex_polygon()
-                                    .unwrap()
-                                    .points()
-                                    .iter()
-                                    .map(|p| Vec2::new(p.x, p.y))
-                                    .collect(),
-                                closed: true,
-                            },
-                            material,
-                            tessellation_mode,
-                            transform,
-                        )
-                    }
+                    RapierShapeType::ConvexPolygon => GeometryBuilder::build_as(
+                        &shapes::Polygon {
+                            points: shape
+                                .as_convex_polygon()
+                                .unwrap()
+                                .points()
+                                .iter()
+                                .map(|p| Vec2::new(p.x, p.y))
+                                .collect(),
+                            closed: true,
+                        },
+                        material,
+                        tessellation_mode,
+                        transform,
+                    ),
                     _ => unimplemented!(),
                 };
                 commands.insert(entity, bundle);
