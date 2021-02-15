@@ -100,19 +100,26 @@ pub fn create_collider_renders_system(
 
                 let material = materials.add(color.into());
                 let tessellation_mode = TessellationMode::Fill(FillOptions::default());
-
                 let bundle = match shape.shape_type() {
-                    RapierShapeType::Cuboid => shapes::Rectangle {
-                        width: 2.0,
-                        height: 2.0,
-                        ..Default::default()
-                    }
-                    .draw(material, tessellation_mode, transform),
-                    RapierShapeType::Ball => shapes::Circle {
-                        radius: 1.0,
-                        ..Default::default()
-                    }
-                    .draw(material, tessellation_mode, transform),
+                    RapierShapeType::Cuboid => GeometryBuilder::build_as(
+                        &shapes::Rectangle {
+                            width: 2.0,
+                            height: 2.0,
+                            ..Default::default()
+                        },
+                        material,
+                        tessellation_mode,
+                        transform,
+                    ),
+                    RapierShapeType::Ball => GeometryBuilder::build_as(
+                        &shapes::Circle {
+                            radius: 1.0,
+                            ..Default::default()
+                        },
+                        material,
+                        tessellation_mode,
+                        transform,
+                    ),
                     _ => unimplemented!(),
                 };
                 commands.insert(entity, bundle);

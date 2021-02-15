@@ -14,5 +14,5 @@ bevy_wgpu = "0.4.0"
 bevy_winit = { version = "0.4.0", features = [ "x11" ] }
 nalgebra = "0.23"
 # bevy_prototype_lyon = "0.1.5"
-bevy_prototype_lyon = { git = "https://github.com/Nilirad/bevy_prototype_lyon" }
+bevy_prototype_lyon = "0.2.0"
 lyon_tessellation = "0.17.1"
