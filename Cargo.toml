@@ -13,5 +13,6 @@ rapier2d = "0.5.0"
 bevy_wgpu = "0.4.0"
 bevy_winit = { version = "0.4.0", features = [ "x11" ] }
 nalgebra = "0.24.1"
+rand = "0.8.3"
 bevy_prototype_lyon = "0.2.0"
 lyon_tessellation = "0.17.1"

@@ -10,16 +10,24 @@ use bevy_rapier2d::rapier::geometry::ColliderBuilder;
 use data::{Cell, Instr, Processor};
 use na::{Point2, Rotation2, Vector2};
 use nalgebra as na;
+use rand::prelude::*;
+use rand::seq::SliceRandom;
+use rand::Rng;
 use rapier2d::dynamics::RigidBodySet;
 use rapier2d::dynamics::{BallJoint, FixedJoint, PrismaticJoint};
 use rapier2d::math::Vector;
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum Side {
-    North,
-    East,
-    South,
-    West,
+    N,
+    NE,
+    SE,
+    S,
+    SW,
+    NW,
 }
+
+const SIDES: [Side; 6] = [Side::N, Side::NE, Side::SE, Side::S, Side::SW, Side::NW];
 
 struct Thruster {
     side: Side,
@@ -50,35 +58,35 @@ fn setup_physics(commands: &mut Commands) {
     let collider1 = ColliderBuilder::cuboid(10.0, 1.0);
     commands.spawn((rigid_body1, collider1));
 
-    let a_body = RigidBodyBuilder::new_dynamic()
-        .translation(0.0, 50.0)
-        .rotation(3.2);
-    let a_collider = ColliderBuilder::cuboid(1.0, 1.0);
-    let a_entity = commands
-        .spawn((
-            a_body,
-            a_collider,
-            Thruster {
-                side: Side::North,
-                on: true,
-            },
-        ))
-        .current_entity()
-        .unwrap();
+    // let a_body = RigidBodyBuilder::new_dynamic()
+    //     .translation(0.0, 50.0)
+    //     .rotation(3.2);
+    // let a_collider = ColliderBuilder::cuboid(1.0, 1.0);
+    // let a_entity = commands
+    //     .spawn((
+    //         a_body,
+    //         a_collider,
+    //         Thruster {
+    //             side: Side::North,
+    //             on: true,
+    //         },
+    //     ))
+    //     .current_entity()
+    //     .unwrap();
 
-    let b_body = RigidBodyBuilder::new_dynamic().translation(4.0, 50.0);
-    let b_collider = ColliderBuilder::cuboid(1.0, 1.0).friction(0.0);
-    let b_entity = commands
-        .spawn((
-            b_body,
-            b_collider,
-            Thruster {
-                side: Side::West,
-                on: true,
-            },
-        ))
-        .current_entity()
-        .unwrap();
+    // let b_body = RigidBodyBuilder::new_dynamic().translation(4.0, 50.0);
+    // let b_collider = ColliderBuilder::cuboid(1.0, 1.0).friction(0.0);
+    // let b_entity = commands
+    //     .spawn((
+    //         b_body,
+    //         b_collider,
+    //         Thruster {
+    //             side: Side::West,
+    //             on: true,
+    //         },
+    //     ))
+    //     .current_entity()
+    //     .unwrap();
 
     let c_body = RigidBodyBuilder::new_dynamic()
         .translation(7.0, 45.0)
@@ -89,7 +97,7 @@ fn setup_physics(commands: &mut Commands) {
         c_body,
         c_collider,
         Thruster {
-            side: Side::East,
+            side: Side::N,
             on: true,
         },
     ));
@@ -101,11 +109,30 @@ fn setup_physics(commands: &mut Commands) {
         d_body,
         d_collider,
         Thruster {
-            side: Side::East,
+            side: Side::NE,
             on: true,
         },
     ));
+    let iter = 0..40;
+    let points = regular_polygon(6, 1.0);
 
+    let mut rng = rand::thread_rng();
+
+    iter.for_each(|item| {
+        let body = RigidBodyBuilder::new_dynamic().translation(
+            rng.gen::<f32>() * 50.0 - 25.0,
+            rng.gen::<f32>() * 50.0 - 25.0,
+        );
+        let collider = ColliderBuilder::convex_hull(&points).unwrap();
+        commands.spawn((
+            body,
+            collider,
+            Thruster {
+                side: *SIDES.choose(&mut rng).unwrap(),
+                on: true,
+            },
+        ));
+    })
     // let joint = BallJoint::new(Point2::new(1.0, 0.0), Point2::new(-1.0, 0.0));
     // commands.spawn((JointBuilderComponent::new(joint, a_entity, b_entity),));
     // Dynamic rigid-body with cube shape.
@@ -157,19 +184,31 @@ fn thruster_system(
     for (rigid_body_handle, thruster) in query.iter() {
         let body = bodies.get_mut(rigid_body_handle.handle()).unwrap();
         let t = body.position();
-        // let rotation = pos.rotation;
 
-        // let matrix = rotation.to_rotation_matrix();
+        // n
+        // ne
+        // se
+        // s
+        // sw
+        // nw
+
+        // c ** 2 = 2*(a ** 2)
+        // 0.5 * c ** 2 = a ** 2
+        // sqrt(c ** 2 / 2) = a
+
+        let impulse: f32 = 0.1;
+        let diagonal = (impulse.powf(2.0) / 2.0).sqrt();
+
         let v = match thruster.side {
-            Side::North => Vector2::new(0.0, 0.1),
-            Side::East => Vector2::new(-0.1, 0.0),
-            Side::South => Vector2::new(0.0, -0.1),
-            Side::West => Vector2::new(0.1, 0.0),
+            Side::N => Vector2::new(0.0, -impulse),
+            Side::NE => Vector2::new(-diagonal, -diagonal),
+            Side::SE => Vector2::new(-diagonal, diagonal),
+            Side::S => Vector2::new(0.0, impulse),
+            Side::SW => Vector2::new(diagonal, diagonal),
+            Side::NW => Vector2::new(diagonal, -diagonal),
         };
 
         let r = t * v;
-
-        // let r = v * matrix;
 
         body.apply_impulse(r, true);
     }
