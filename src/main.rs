@@ -64,7 +64,8 @@ fn setup_physics(commands: &mut Commands) {
 
     // let joint = BallJoint::new(Point2::new(1.0, 0.0), Point2::new(-1.0, 0.0));
     // commands.spawn((JointBuilderComponent::new(joint, a_entity, b_entity),));
-    // // Dynamic rigid-body with cube shape.
+    // Dynamic rigid-body with cube shape.
+
     // let iter = 0..10;
     // iter.for_each(|item| {
     //     let rigid_body2 = RigidBodyBuilder::new_dynamic().translation((item as f32) * 2.0, 50.0);
