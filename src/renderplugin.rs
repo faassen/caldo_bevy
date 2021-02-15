@@ -89,6 +89,7 @@ pub fn create_collider_renders_system(
                     }
                     RapierShapeType::ConvexPolygon => {
                         let b = shape.as_convex_polygon().unwrap();
+                        // hardcoded dimensions, can we get this from shape somehow?
                         Vec3::new(1.0, 1.0, 1.0)
                     }
                     _ => unimplemented!(),

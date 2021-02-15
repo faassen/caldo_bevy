@@ -26,6 +26,24 @@ struct Thruster {
     on: bool,
 }
 
+fn regular_polygon(sides: usize, radius: f32) -> Vec<Point2<f32>> {
+    use std::f32::consts::PI;
+    let n = sides as f32;
+    let internal = (n - 2.0) * PI / n;
+    let offset = -internal / 2.0;
+
+    let mut points: Vec<Point2<f32>> = Vec::with_capacity(sides);
+    let step = 2.0 * PI / n;
+
+    for i in 0..sides {
+        let cur_angle = (i as f32).mul_add(step, offset);
+        let x = radius.mul_add(cur_angle.cos(), 0.0);
+        let y = radius.mul_add(cur_angle.sin(), 0.0);
+        points.push(Point2::new(x, y));
+    }
+    points
+}
+
 fn setup_physics(commands: &mut Commands) {
     // Static rigid-body with a cuboid shape.
     let rigid_body1 = RigidBodyBuilder::new_static().rotation(0.2);
@@ -63,22 +81,9 @@ fn setup_physics(commands: &mut Commands) {
         .unwrap();
 
     let c_body = RigidBodyBuilder::new_dynamic().translation(8.0, 45.0);
-    use std::f32::consts::PI;
 
-    let radius: f32 = 1.0;
+    let points = regular_polygon(6, 1.0);
 
-    let internal = (6.0 - 2.0) * PI / 6.0;
-    let offset = -internal / 2.0;
-
-    let mut points: Vec<Point2<f32>> = Vec::with_capacity(6);
-    let step = 2.0 * PI / 6.0;
-
-    for i in 0..6 {
-        let cur_angle = (i as f32).mul_add(step, offset);
-        let x = radius.mul_add(cur_angle.cos(), 0.0);
-        let y = radius.mul_add(cur_angle.sin(), 0.0);
-        points.push(Point2::new(x, y));
-    }
     // println!("Points {:?}", points);
     let c_collider = ColliderBuilder::convex_hull(&points).unwrap();
     commands.spawn((
