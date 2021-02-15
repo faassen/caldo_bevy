@@ -62,7 +62,7 @@ fn setup_physics(commands: &mut Commands) {
         .current_entity()
         .unwrap();
 
-    let c_body = RigidBodyBuilder::new_dynamic().translation(0.0, 40.0);
+    let c_body = RigidBodyBuilder::new_dynamic().translation(8.0, 45.0);
     use std::f32::consts::PI;
 
     let radius: f32 = 1.0;
