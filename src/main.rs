@@ -87,6 +87,11 @@ fn setup_physics(commands: &mut Commands) {
     //     .current_entity()
     //     .unwrap();
 
+    // let d_body = RigidBodyBuilder::new_dynamic().translation(5.0, 35.0);
+    // let d_points = regular_polygon(6, 2.0);
+    // let d_collider = ColliderBuilder::convex_hull(&d_points).unwrap();
+    // commands.spawn((d_body, d_collider, Thruster { side: 1, on: true }));
+
     let c_body = RigidBodyBuilder::new_dynamic()
         .translation(7.0, 45.0)
         .mass(2.0);
@@ -94,10 +99,6 @@ fn setup_physics(commands: &mut Commands) {
     let c_collider = ColliderBuilder::convex_hull(&c_points).unwrap();
     commands.spawn((c_body, c_collider, Thruster { side: 5, on: true }));
 
-    // let d_body = RigidBodyBuilder::new_dynamic().translation(5.0, 35.0);
-    // let d_points = regular_polygon(6, 2.0);
-    // let d_collider = ColliderBuilder::convex_hull(&d_points).unwrap();
-    // commands.spawn((d_body, d_collider, Thruster { side: 1, on: true }));
     let iter = 0..40;
     let points = regular_polygon(6, 1.0);
 
@@ -118,6 +119,7 @@ fn setup_physics(commands: &mut Commands) {
             },
         ));
     })
+
     // let joint = BallJoint::new(Point2::new(1.0, 0.0), Point2::new(-1.0, 0.0));
     // commands.spawn((JointBuilderComponent::new(joint, a_entity, b_entity),));
     // Dynamic rigid-body with cube shape.
