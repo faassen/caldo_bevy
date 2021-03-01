@@ -1,32 +1,23 @@
+use std::convert::TryInto;
+
 use bevy::prelude::*;
 use bevy_prototype_lyon::prelude::ShapePlugin;
 mod data;
 mod renderplugin;
 use bevy_rapier2d::physics::{
-    JointBuilderComponent, RapierConfiguration, RapierPhysicsPlugin, RigidBodyHandleComponent,
+    ColliderHandleComponent, EventQueue, JointBuilderComponent, RapierConfiguration,
+    RapierPhysicsPlugin, RigidBodyHandleComponent,
 };
-use bevy_rapier2d::rapier::dynamics::RigidBodyBuilder;
-use bevy_rapier2d::rapier::geometry::ColliderBuilder;
+use bevy_rapier2d::rapier::dynamics::{RigidBodyBuilder, RigidBodySet};
+use bevy_rapier2d::rapier::geometry::{ColliderBuilder, ColliderSet};
 use data::{Cell, Instr, Processor};
 use na::{Point2, Rotation2, Vector2};
 use nalgebra as na;
 
 use rand::Rng;
-use rapier2d::dynamics::RigidBodySet;
 use rapier2d::dynamics::{BallJoint, FixedJoint, PrismaticJoint};
+use rapier2d::geometry::ContactEvent;
 use rapier2d::math::Vector;
-
-// #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-// enum Side {
-//     N,
-//     NE,
-//     SE,
-//     S,
-//     SW,
-//     NW,
-// }
-
-// const SIDES: [Side; 6] = [Side::N, Side::NE, Side::SE, Side::S, Side::SW, Side::NW];
 
 struct Thruster {
     side: u8,
@@ -150,6 +141,34 @@ fn setup_physics(commands: &mut Commands) {
     // });
 }
 
+fn setup_user_data(
+    mut colliders: ResMut<ColliderSet>,
+    query: Query<(Entity, &ColliderHandleComponent)>,
+) {
+    for (entity, collider_handle) in &mut query.iter() {
+        if let Some(collider) = colliders.get_mut(collider_handle.handle()) {
+            collider.user_data = entity.to_bits() as u128;
+            // println!("set user data! {}", entity.to_bits())
+        }
+    }
+}
+
+fn display_events(colliders: Res<ColliderSet>, events: Res<EventQueue>) {
+    while let Ok(contact_event) = events.contact_events.pop() {
+        match contact_event {
+            ContactEvent::Started(first_handle, second_handle) => {
+                if let Some(collider) = colliders.get(first_handle) {
+                    println!("Received contact event");
+                    let first_entity = Entity::from_bits(collider.user_data as u64);
+                    println!("User data {:?}", collider.user_data);
+                    println!("First entity: {:?}", first_entity);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
 fn setup_graphics(commands: &mut Commands, mut configuration: ResMut<RapierConfiguration>) {
     configuration.scale = 10.0;
     // not sure why these two need to be configured
@@ -222,7 +241,9 @@ fn main() {
         .add_startup_system(setup_graphics.system())
         // setup physics
         .add_startup_system(setup_physics.system())
+        .add_system(setup_user_data.system())
         .add_system(thruster_system.system())
+        .add_system(display_events.system())
         .run();
 }
 
