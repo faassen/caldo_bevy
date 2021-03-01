@@ -10,27 +10,26 @@ use bevy_rapier2d::rapier::geometry::ColliderBuilder;
 use data::{Cell, Instr, Processor};
 use na::{Point2, Rotation2, Vector2};
 use nalgebra as na;
-use rand::prelude::*;
-use rand::seq::SliceRandom;
+
 use rand::Rng;
 use rapier2d::dynamics::RigidBodySet;
 use rapier2d::dynamics::{BallJoint, FixedJoint, PrismaticJoint};
 use rapier2d::math::Vector;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-enum Side {
-    N,
-    NE,
-    SE,
-    S,
-    SW,
-    NW,
-}
+// #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+// enum Side {
+//     N,
+//     NE,
+//     SE,
+//     S,
+//     SW,
+//     NW,
+// }
 
-const SIDES: [Side; 6] = [Side::N, Side::NE, Side::SE, Side::S, Side::SW, Side::NW];
+// const SIDES: [Side; 6] = [Side::N, Side::NE, Side::SE, Side::S, Side::SW, Side::NW];
 
 struct Thruster {
-    side: Side,
+    side: u8,
     on: bool,
 }
 
@@ -93,26 +92,12 @@ fn setup_physics(commands: &mut Commands) {
         .mass(2.0);
     let c_points = regular_polygon(6, 1.0);
     let c_collider = ColliderBuilder::convex_hull(&c_points).unwrap();
-    commands.spawn((
-        c_body,
-        c_collider,
-        Thruster {
-            side: Side::N,
-            on: true,
-        },
-    ));
+    commands.spawn((c_body, c_collider, Thruster { side: 5, on: true }));
 
-    let d_body = RigidBodyBuilder::new_dynamic().translation(5.0, 35.0);
-    let d_points = regular_polygon(6, 2.0);
-    let d_collider = ColliderBuilder::convex_hull(&d_points).unwrap();
-    commands.spawn((
-        d_body,
-        d_collider,
-        Thruster {
-            side: Side::NE,
-            on: true,
-        },
-    ));
+    // let d_body = RigidBodyBuilder::new_dynamic().translation(5.0, 35.0);
+    // let d_points = regular_polygon(6, 2.0);
+    // let d_collider = ColliderBuilder::convex_hull(&d_points).unwrap();
+    // commands.spawn((d_body, d_collider, Thruster { side: 1, on: true }));
     let iter = 0..40;
     let points = regular_polygon(6, 1.0);
 
@@ -128,7 +113,7 @@ fn setup_physics(commands: &mut Commands) {
             body,
             collider,
             Thruster {
-                side: *SIDES.choose(&mut rng).unwrap(),
+                side: rng.gen_range(0..6),
                 on: true,
             },
         ));
@@ -167,10 +152,10 @@ fn setup_graphics(commands: &mut Commands, mut configuration: ResMut<RapierConfi
     configuration.scale = 10.0;
     // not sure why these two need to be configured
     commands
-        .spawn(LightBundle {
-            transform: Transform::from_translation(Vec3::new(1000.0, 100.0, 2000.0)),
-            ..Default::default()
-        })
+        // .spawn(LightBundle {
+        //     transform: Transform::from_translation(Vec3::new(1000.0, 100.0, 2000.0)),
+        //     ..Default::default()
+        // })
         .spawn(Camera2dBundle {
             transform: Transform::from_translation(Vec3::new(0.0, 200.0, 0.0)),
             ..Camera2dBundle::default()
@@ -185,33 +170,24 @@ fn thruster_system(
         let body = bodies.get_mut(rigid_body_handle.handle()).unwrap();
         let t = body.position();
 
-        // n
-        // ne
-        // se
-        // s
-        // sw
-        // nw
-
-        // c ** 2 = 2*(a ** 2)
-        // 0.5 * c ** 2 = a ** 2
-        // sqrt(c ** 2 / 2) = a
-
         let impulse: f32 = 0.1;
-        let diagonal = (impulse.powf(2.0) / 2.0).sqrt();
-
-        let v = match thruster.side {
-            Side::N => Vector2::new(0.0, -impulse),
-            Side::NE => Vector2::new(-diagonal, -diagonal),
-            Side::SE => Vector2::new(-diagonal, diagonal),
-            Side::S => Vector2::new(0.0, impulse),
-            Side::SW => Vector2::new(diagonal, diagonal),
-            Side::NW => Vector2::new(diagonal, -diagonal),
-        };
-
-        let r = t * v;
+        let v = vector_for_side(6, thruster.side);
+        let r = t * v * impulse;
 
         body.apply_impulse(r, true);
     }
+}
+
+fn vector_for_side(sides: u8, s: u8) -> Vector2<f32> {
+    use std::f32::consts::PI;
+    // adjust half PI to get it to point up, as up side is side 0,
+    // then counting clockwise
+    radian_to_vector(((2. * PI) / (sides as f32)) * (s as f32) - 0.5 * PI)
+}
+
+fn radian_to_vector(r: f32) -> Vector2<f32> {
+    // not sure why I have to flip the y coordinate
+    Vector2::new(r.cos(), -r.sin())
 }
 
 #[bevy_main]
@@ -246,4 +222,60 @@ fn main() {
         .add_startup_system(setup_physics.system())
         .add_system(thruster_system.system())
         .run();
+}
+
+#[macro_use]
+extern crate assert_float_eq;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_radian_to_vector() {
+        use std::f32::consts::PI;
+
+        let v = radian_to_vector(0.0);
+        assert_float_absolute_eq!(v.x, 1.0);
+        assert_float_absolute_eq!(v.y, 0.0);
+
+        let v2 = radian_to_vector(0.5 * PI);
+        assert_float_absolute_eq!(v2.x, 0.0);
+        assert_float_absolute_eq!(v2.y, -1.0);
+
+        let v3 = radian_to_vector(PI);
+        assert_float_absolute_eq!(v3.x, -1.0);
+        assert_float_absolute_eq!(v3.y, 0.0);
+
+        let v4 = radian_to_vector(1.5 * PI);
+        assert_float_absolute_eq!(v4.x, 0.0);
+        assert_float_absolute_eq!(v4.y, 1.0);
+    }
+
+    #[test]
+    fn test_vector_for_side() {
+        let v0 = vector_for_side(6, 0);
+        assert_float_absolute_eq!(v0.x, 0.0);
+        assert_float_absolute_eq!(v0.y, 1.0);
+
+        let v1 = vector_for_side(6, 1);
+        assert_float_absolute_eq!(v1.x, 0.8660254);
+        assert_float_absolute_eq!(v1.y, 0.5);
+
+        let v2 = vector_for_side(6, 2);
+        assert_float_absolute_eq!(v2.x, 0.8660254);
+        assert_float_absolute_eq!(v2.y, -0.5);
+
+        let v3 = vector_for_side(6, 3);
+        assert_float_absolute_eq!(v3.x, 0.0);
+        assert_float_absolute_eq!(v3.y, -1.0);
+
+        let v4 = vector_for_side(6, 4);
+        assert_float_absolute_eq!(v4.x, -0.8660254);
+        assert_float_absolute_eq!(v4.y, -0.5);
+
+        let v5 = vector_for_side(6, 5);
+        assert_float_absolute_eq!(v5.x, -0.8660254);
+        assert_float_absolute_eq!(v5.y, 0.5);
+    }
 }
