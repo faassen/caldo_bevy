@@ -142,14 +142,10 @@ fn setup_physics(commands: &mut Commands) {
 }
 
 fn setup_user_data(
-    mut colliders: ResMut<ColliderSet>,
-    query: Query<(Entity, &ColliderHandleComponent)>,
+    mut query: Query<(Entity, &mut ColliderBuilder)>,
 ) {
-    for (entity, collider_handle) in &mut query.iter() {
-        if let Some(collider) = colliders.get_mut(collider_handle.handle()) {
-            collider.user_data = entity.to_bits() as u128;
-            // println!("set user data! {}", entity.to_bits())
-        }
+    for (entity, mut builder) in query.iter_mut() {
+        builder.user_data = entity.to_bits().into()
     }
 }
 
@@ -241,7 +237,7 @@ fn main() {
         .add_startup_system(setup_graphics.system())
         // setup physics
         .add_startup_system(setup_physics.system())
-        .add_system(setup_user_data.system())
+        .add_startup_system_to_stage(bevy::app::startup_stage::POST_STARTUP, setup_user_data.system())
         .add_system(thruster_system.system())
         .add_system(display_events.system())
         .run();
